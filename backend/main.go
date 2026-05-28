@@ -81,6 +81,7 @@ func main() {
 
 	// HTTP server
 	handler := api.NewHandler(portsFile, store, staticDir, dispatcher, hub)
+	go handler.WatchConfigFile(ctx, 2*time.Second)
 	srv := &http.Server{
 		Addr:         listenAddr,
 		Handler:      handler,

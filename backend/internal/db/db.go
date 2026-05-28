@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -286,6 +287,55 @@ func (s *Store) CheckpointTruncate(ctx context.Context) error {
 func (s *Store) Optimize(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `PRAGMA optimize`)
 	return err
+}
+
+func (s *Store) ReconcileServices(ctx context.Context, activeIDs []string) (int64, error) {
+	if len(activeIDs) == 0 {
+		res1, err := s.db.ExecContext(ctx, `DELETE FROM service_state`)
+		if err != nil {
+			return 0, err
+		}
+		res2, err := s.db.ExecContext(ctx, `DELETE FROM service_settings`)
+		if err != nil {
+			return 0, err
+		}
+		res3, err := s.db.ExecContext(ctx, `DELETE FROM ping_results`)
+		if err != nil {
+			return 0, err
+		}
+		n1, _ := res1.RowsAffected()
+		n2, _ := res2.RowsAffected()
+		n3, _ := res3.RowsAffected()
+		return n1 + n2 + n3, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(activeIDs)), ",")
+	args := make([]any, len(activeIDs))
+	for i, id := range activeIDs {
+		args[i] = id
+	}
+
+	qState := fmt.Sprintf(`DELETE FROM service_state WHERE service_id NOT IN (%s)`, placeholders)
+	qSettings := fmt.Sprintf(`DELETE FROM service_settings WHERE service_id NOT IN (%s)`, placeholders)
+	qHistory := fmt.Sprintf(`DELETE FROM ping_results WHERE service_id NOT IN (%s)`, placeholders)
+
+	res1, err := s.db.ExecContext(ctx, qState, args...)
+	if err != nil {
+		return 0, err
+	}
+	res2, err := s.db.ExecContext(ctx, qSettings, args...)
+	if err != nil {
+		return 0, err
+	}
+	res3, err := s.db.ExecContext(ctx, qHistory, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	n1, _ := res1.RowsAffected()
+	n2, _ := res2.RowsAffected()
+	n3, _ := res3.RowsAffected()
+	return n1 + n2 + n3, nil
 }
 
 // ServiceSetting holds heartbeat and retry config for a service.

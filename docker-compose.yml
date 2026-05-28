@@ -18,7 +18,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./services.json:/data/services.json:ro   # topology config (read-only)
+      - ./services.json:/data/services.json      # topology config (writable source of truth)
       - portstellar-data:/data             # SQLite DB persisted here
     environment:
       ADMIN_PASSWORD: "123456"             # change in production

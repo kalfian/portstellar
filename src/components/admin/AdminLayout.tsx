@@ -31,7 +31,12 @@ export function AdminLayout() {
             <div className="border-t border-white/6" />
           </div>
 
-          <NavItem to="/" icon={<GlobeIcon />}>Public Mesh</NavItem>
+          <a href="/" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-100 group text-white/40 hover:text-white/75 hover:bg-white/5">
+            <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors bg-white/5 group-hover:bg-white/8">
+              <span className="text-white/40 group-hover:text-white/60"><GlobeIcon /></span>
+            </div>
+            Public Mesh
+          </a>
         </nav>
 
         {/* User / logout */}

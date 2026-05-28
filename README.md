@@ -19,7 +19,7 @@ curl -o services.json https://raw.githubusercontent.com/kalfian/portstellar/mast
 docker run -d \
   --name portstellar \
   -p 8080:8080 \
-  -v $(pwd)/services.json:/data/services.json:ro \
+  -v $(pwd)/services.json:/data/services.json \
   -v portstellar-data:/data \
   --cap-add NET_RAW \
   -e ADMIN_PASSWORD=yourpassword \
@@ -175,7 +175,7 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 │         ▲  WebSocket push on each probe result          │
 └─────────┼───────────────────────────────────────────────┘
           │
-       Browser         services.json (mounted read-only)
+       Browser         services.json (mounted writable, source of truth)
 ```
 
 ### API

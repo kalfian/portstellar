@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kalfian/portstellar/internal/config"
-	"github.com/kalfian/portstellar/internal/ws"
 )
 
 func (h *Handler) adminGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -52,8 +51,10 @@ func (h *Handler) adminPutConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "config saved but reload failed", http.StatusInternalServerError)
 		return
 	}
-	h.dispatcher.UpdateConfig(loaded)
-	h.hub.Publish(ws.Message{Type: ws.TypeConfigUpdated})
+	if err := h.applyLoadedConfig(r.Context(), loaded); err != nil {
+		http.Error(w, "config apply failed", http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, map[string]any{"ok": true, "savedAt": time.Now().UnixMilli()})
 }
 
