@@ -229,4 +229,6 @@ See [PLAN.md](./PLAN.md) for full roadmap and [SPECS.md](./SPECS.md) for design 
 
 ## License
 
-MIT
+[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
+
+Portstellar is free to use, modify, and self-host. If you run a modified version on a server that others access (including SaaS), you must publish your modifications under the same license. See LICENSE for full terms.
