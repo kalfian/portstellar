@@ -2,7 +2,7 @@
 
 > **Map your homelab like a star system.**
 
-A JSON-first port discovery and uptime monitor for homelabs. Define your hosts and services in one file, and Portstellar plots each host as a **sun** with services **orbiting** as port chips — color-coded by category, connected by **live ping rays** that flow green when reachable, yellow when degraded, and snap red with a ✕ when unreachable. Drag, zoom, and arrange the universe to match your mental model.
+A JSON-first port discovery and uptime monitor for homelabs. Define your hosts and services in one file — Portstellar plots each host as a **sun** with services **orbiting** as port chips, color-coded by category, connected by **live ping rays** that pulse green when reachable, yellow when degraded, and snap red on failure.
 
 ---
 
@@ -11,47 +11,53 @@ A JSON-first port discovery and uptime monitor for homelabs. Define your hosts a
 ### Docker (recommended)
 
 ```bash
-git clone git@github.com:kalfian/portstellar.git
-cd portstellar
+# 1. Create your ports.json (see Configuration below)
+curl -o ports.json https://raw.githubusercontent.com/kalfian/portstellar/master/public/ports.json
+# Edit ports.json with your hosts and services
 
-# Edit public/ports.json with your hosts and services, then:
-docker compose up -d
+# 2. Run
+docker run -d \
+  --name portstellar \
+  -p 8080:8080 \
+  -v $(pwd)/ports.json:/data/ports.json:ro \
+  -v portstellar-data:/data \
+  --cap-add NET_RAW \
+  -e ADMIN_PASSWORD=yourpassword \
+  --restart unless-stopped \
+  ghcr.io/kalfian/portstellar:latest
 
-# Open http://localhost:8080
+# 3. Open
+open http://localhost:8080          # public mesh
+open http://localhost:8080/admin    # admin panel
 ```
 
-That's it. The container builds the SPA and Go binary, starts probing, and serves everything on port 8080.
+> **`NET_RAW`** is only needed for ICMP probes. Remove `--cap-add NET_RAW` if you only use HTTP/TCP.
 
 ### Dev mode
 
 ```bash
-# Terminal 1 — backend
-cd backend
-go run .
-# Listens on :8080, starts probing immediately
-
-# Terminal 2 — frontend
-npm install
-npm run dev
-# Opens on :5173, proxies /api → :8080
+./dev.sh
+# backend → :8080   frontend → :1212
 ```
 
-The frontend auto-detects the backend. If the backend is down, it falls back to **simulated ping** with an amber "offline" badge.
+The frontend auto-detects the backend. If the backend is down it falls back to **simulated ping** with an amber "offline" badge.
 
 ---
 
 ## Features
 
 - **Radial mesh** — hosts as suns, services as orbiting port chips with category-colored ray lines
-- **Drag-to-arrange** — drag a sun and its services follow; nudge individual ports to override; layouts persist in `localStorage`
-- **Pan & zoom** — drag empty canvas to pan, mouse wheel to zoom centered on cursor, `fit` button auto-centers everything
-- **Live ping rays** — green flowing dashes on success, yellow for high-latency, red ✕ on failure, gray while probing
-- **Multi-protocol probes** — HTTP, TCP, ICMP, auto-detected from your config
-- **Uptime tracking** — 24h uptime %, sparkline latency chart in detail drawer
-- **JSON-first config** — `ports.json` is the source of truth; no UI editor, no DB write path for topology
+- **Drag-to-arrange** — drag a sun and services follow; nudge individual chips; layouts persist in `localStorage`
+- **Pan & zoom** — drag to pan, wheel to zoom centered on cursor, `fit` auto-centers everything
+- **Live ping rays** — real-time via WebSocket push; green flowing dashes on success, yellow for high latency, red ✕ on failure
+- **Multi-protocol probes** — HTTP, TCP, ICMP — auto-detected or explicit per service
+- **Per-service heartbeat** — configure check interval and retries before down independently per service
+- **Uptime detail** — Uptime Kuma-style beat bar (last 50 heartbeats), response time chart, uptime 24h/30d
+- **Admin panel** — web UI to manage hosts, services, categories, and per-service probe settings
+- **JSON-first config** — `ports.json` is the source of truth for topology (hosts & services)
+- **SQLite for runtime data** — ping history, uptime stats, per-service settings stored in SQLite
 - **Dual-themed** — dark CRT vibes or paper blueprint vibes
-- **Single binary, single container** — Go + embedded SPA + SQLite
-- **Auto-fallback** — frontend works without backend (simulated mode) with live/offline indicator
+- **Single binary, single container** — Go + embedded SPA + SQLite, one port
 
 ---
 
@@ -63,8 +69,9 @@ The frontend auto-detects the backend. If the backend is down, it falls back to 
   "pingIntervalMs": 30000,
 
   "categories": [
-    { "id": "media", "label": "Media", "color": "#ff5577" },
-    { "id": "infra", "label": "Infra", "color": "#4d9bff" }
+    { "id": "media",  "label": "Media",  "color": "#ff5577" },
+    { "id": "infra",  "label": "Infra",  "color": "#4d9bff" },
+    { "id": "net",    "label": "Network","color": "#ffb454" }
   ],
 
   "hosts": [
@@ -96,126 +103,108 @@ The frontend auto-detects the backend. If the backend is down, it falls back to 
 **Root**
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `name` | string | `"Home Server"` | Shown in header. |
-| `pingIntervalMs` | number | `30000` | Probe interval in milliseconds. |
-| `categories[]` | array | required | Color groups for services. |
-| `hosts[]` | array | required | Hosts and their services. |
+| `name` | string | `"Home Server"` | Shown in header |
+| `pingIntervalMs` | number | `30000` | Global probe interval (ms); overridable per service in admin |
+| `categories[]` | array | required | Color groups for services |
+| `hosts[]` | array | required | Hosts and their services |
 
 **Host**
 | Field | Required | Notes |
 |---|---|---|
-| `id` | yes | Unique identifier. |
-| `name` | yes | Display name (sun core label). |
-| `ip` | yes | Used for probe target. |
-| `note` | no | Free-text description. |
-| `services[]` | yes (may be empty) | Nested services. |
+| `id` | yes | Unique identifier |
+| `name` | yes | Display name (sun core label) |
+| `ip` | yes | Used as probe target |
+| `note` | no | Free-text description |
+| `services[]` | yes (may be empty) | Nested services |
 
 **Service**
 | Field | Required | Notes |
 |---|---|---|
-| `id` | yes | Unique within host. Stored as `<hostId>-<id>`. |
-| `name` | yes | Display label. |
-| `port` | yes | TCP/UDP port number. |
-| `protocol` | no | `tcp` (default) \| `udp`. |
-| `category` | no | Match a `categories[].id`. |
-| `url` | no | HTTP probe target and "open" link. |
-| `description` | no | Shown in detail drawer. |
-| `tags[]` | no | Free-form tags. |
-| `status` | no | `running` \| `stopped` \| `reserved` \| `unknown`. |
-| `probe` | no | `{ "type": "http" | "tcp" | "icmp" }` — override auto-detection. |
+| `id` | yes | Unique within host. Stored as `<hostId>-<serviceId>` in DB |
+| `name` | yes | Display label |
+| `port` | yes | TCP/UDP port number |
+| `protocol` | no | `tcp` (default) \| `udp` |
+| `category` | no | Must match a `categories[].id` |
+| `url` | no | HTTP probe target and "open" link |
+| `description` | no | Shown in detail drawer |
+| `tags[]` | no | Free-form tags |
+| `status` | no | `running` \| `stopped` \| `reserved` \| `unknown` |
+| `probe` | no | `{ "type": "http" \| "tcp" \| "icmp" }` — override auto-detection |
 
-### Probe type auto-detection
+### Probe auto-detection
 
-If `probe` is not specified, the backend auto-detects:
-1. **Explicit** `probe.type` → use that
-2. **URL** set with `http(s)://...` → **HTTP** GET against `url` (success if status < 500)
-3. **Protocol** is `udp` → **ICMP** ping against `host.ip`
-4. **Default** → **TCP** dial against `host.ip:port`
+Priority order:
+1. Explicit `probe.type` → use that
+2. `url` starts with `http://` or `https://` → **HTTP** GET (success if status < 500)
+3. `protocol` is `udp` → **ICMP** ping against `host.ip`
+4. Default → **TCP** dial against `host.ip:port`
 
-Override anytime with an explicit `probe` block.
-
-### Probe details
-
-| Type | Method | Success criteria | Timeout |
+| Type | Method | Success | Timeout |
 |---|---|---|---|
-| HTTP | `GET url` (skip TLS verify) | Status < 500 | 4s |
+| HTTP | GET (skip TLS verify) | Status < 500 | 4s |
 | TCP | `net.Dial("tcp", host:port)` | Connection opens | 4s |
 | ICMP | pro-bing, 1 packet | Reply received | 4s |
+
+---
+
+## Admin Panel
+
+Visit `/admin` to access the admin panel (default password: `123456` — change via `ADMIN_PASSWORD` env or Settings page).
+
+- **Config Editor** — add/edit/delete hosts, services, and categories; topology is saved back to `ports.json`
+- **Per-service settings** — set heartbeat interval and retry count per service (stored in SQLite, independent of `ports.json`)
+- **Dashboard** — live service counts and uptime ring
+- **Settings** — change admin password
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ Single container: portstellar                        │
-│                                                      │
-│  ┌─────────────┐   ┌──────────────┐   ┌───────────┐ │
-│  │ HTTP Server │   │  Dispatcher  │   │  SQLite   │ │
-│  │  :8080      │   │  N-second    │   │ /data/db  │ │
-│  │             │──▶│  ticker      │──▶│           │ │
-│  │  /api/*     │   │  ┌─────────┐ │   │ append    │ │
-│  │  static SPA │   │  │HTTP TCP │ │   │ -only log │ │
-│  └─────────────┘   │  │ ICMP    │ │   │           │ │
-│         ▲          │  └─────────┘ │   └───────────┘ │
-│         │          └──────────────┘                  │
-└─────────┼──────────────────▲─────────────────────────┘
-          │                  │
-       Browser         ports.json (mounted RO)
+┌─────────────────────────────────────────────────────────┐
+│ Container: portstellar                                  │
+│                                                         │
+│  ┌──────────────┐   ┌───────────────┐   ┌───────────┐  │
+│  │ HTTP + WS    │   │  Dispatcher   │   │  SQLite   │  │
+│  │ :8080        │   │  5s tick      │   │ /data/    │  │
+│  │              │◀──│  per-service  │──▶│           │  │
+│  │  /api/*      │   │  heartbeat    │   │ ping_log  │  │
+│  │  /api/ws     │   │  + retries    │   │ settings  │  │
+│  │  static SPA  │   └───────────────┘   └───────────┘  │
+│  └──────────────┘                                       │
+│         ▲  WebSocket push on each probe result          │
+└─────────┼───────────────────────────────────────────────┘
+          │
+       Browser         ports.json (mounted read-only)
 ```
 
 ### API
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/api/config` | Raw `ports.json` contents |
-| GET | `/api/pings/latest` | Current state per service |
-| GET | `/api/pings/history?service=<id>&range=<hours>` | Time-series for sparkline (default 24h) |
-| GET | `/api/health` | `{ status, uptime, lastTick }` |
-| GET | `/*` | SPA fallback to `index.html` |
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/config` | — | Raw `ports.json` |
+| GET | `/api/pings/latest` | — | Latest state per service |
+| GET | `/api/pings/history` | — | `?service=<id>&range=<hours>` |
+| GET | `/api/services/{id}/stats` | — | Uptime %, avg latency, last 50 beats |
+| GET | `/api/services/{id}/settings` | — | Heartbeat interval + retry config |
+| PUT | `/api/services/{id}/settings` | ✓ | Update probe settings |
+| GET | `/api/health` | — | `{ status, uptime, lastTick }` |
+| GET | `/api/ws` | — | WebSocket — push `ping_result` events |
+| POST | `/api/auth/login` | — | Returns JWT token |
+| GET | `/api/admin/config` | ✓ | Config for admin editor |
+| PUT | `/api/admin/config` | ✓ | Save topology to `ports.json` |
 
 ---
 
-## Docker
-
-### Build & run
-
-```bash
-docker compose up -d
-# → UI on http://localhost:8080
-```
-
-### Volumes
-
-| Mount | Purpose |
-|---|---|
-| `./public/ports.json:/data/ports.json:ro` | Your topology config (read-only) |
-| `portstellar-data:/data` | SQLite database (persists across restarts) |
-
-### ICMP
-
-The container needs `NET_RAW` capability for privileged ICMP (already in `docker-compose.yml`). The prober tries unprivileged UDP-based ping first and falls back to privileged raw socket.
-
-### Environment variables
+## Environment variables
 
 | Var | Default | Notes |
 |---|---|---|
-| `PORTS_FILE` | `/data/ports.json` | Path to config file |
+| `PORTS_FILE` | `/data/ports.json` | Path to topology config |
 | `DB_FILE` | `/data/portstellar.db` | SQLite database path |
 | `STATIC_DIR` | `/app/dist` | SPA build directory |
 | `LISTEN_ADDR` | `:8080` | HTTP listen address |
-
----
-
-## JSON-first principle
-
-Portstellar treats `ports.json` as the **source of truth**. There's no in-app config editor and no database write path that mutates topology. You edit the file, Portstellar reads it. This makes your topology:
-
-- **Version-controllable** — commit your homelab to Git
-- **Backup-friendly** — it's one file
-- **Scriptable** — generate it from `docker ps`, Ansible inventory, Terraform output, or `nmap`
-
-The SQLite database stores **runtime data only** — ping history and latency samples. Blow it away whenever; the topology survives.
+| `ADMIN_PASSWORD` | `""` | If set, enforced on every startup. If empty, uses stored password (default `123456` on first run) |
 
 ---
 
@@ -223,25 +212,23 @@ The SQLite database stores **runtime data only** — ping history and latency sa
 
 | Layer | Stack |
 |---|---|
-| Frontend | Vite + React + TypeScript + TailwindCSS + IBM Plex Sans/Mono |
-| Backend | Go 1.22+, stdlib `net/http` & `log/slog` |
-| DB | SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO) |
+| Frontend | Vite + React + TypeScript + TailwindCSS + IBM Plex Mono |
+| Backend | Go 1.22+, `net/http`, `log/slog`, gorilla/websocket |
+| Database | SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO) |
 | ICMP | [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing) |
-| Deploy | Docker multi-stage → single alpine image, single port |
+| Deploy | Docker multi-stage → single alpine image (amd64 + arm64) |
 
 ---
 
 ## Contributing
 
-Issues and pull requests welcome. Before submitting code:
-- Run `npx tsc --noEmit` to ensure types check
-- Run `cd backend && go build .` to ensure Go compiles
-- Keep `ports.json` schema changes documented in this README
+Issues and pull requests welcome. Before submitting:
+- `npx tsc --noEmit` — TypeScript must pass
+- `cd backend && go build .` — Go must compile
+- Document any `ports.json` schema changes in this README
 
 ---
 
 ## License
 
-[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
-
-Portstellar is free to use, modify, and self-host. If you run a modified version on a server that others access (including SaaS), you must publish your modifications under the same license. See [LICENSE](./LICENSE) for full terms.
+[AGPL-3.0](./LICENSE) — free to use, modify, and self-host. If you run a modified version on a server others access, publish your modifications under the same license.
