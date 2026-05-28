@@ -73,7 +73,7 @@ function PublicMeshPageInner({ data, error, loading, source }: InnerProps) {
       {error && (
         <div className="m-4 border border-[#ff5757] text-[#ff5757] px-4 py-3 text-sm">
           <div className="text-[10px] uppercase tracking-[0.28em] opacity-80 mb-1">
-            ports.json · parse error
+            services.json · parse error
           </div>
           {error}
         </div>

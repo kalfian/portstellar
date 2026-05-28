@@ -11,7 +11,7 @@ dev.sh
 *.db-shm
 backend/portstellar
 backend/portstellar.db
-backend/ports.json
+backend/services.json
 
 # Docs / meta
 README.md

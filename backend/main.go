@@ -26,7 +26,7 @@ func env(key, fallback string) string {
 func main() {
 	slog.Info("portstellar starting")
 
-	portsFile := env("PORTS_FILE", "ports.json")
+	portsFile := env("SERVICES_FILE", "services.json")
 	dbFile := env("DB_FILE", "portstellar.db")
 	staticDir := env("STATIC_DIR", "../dist")
 	listenAddr := env("LISTEN_ADDR", ":8080")

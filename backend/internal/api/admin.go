@@ -59,7 +59,7 @@ func (h *Handler) adminPutConfig(w http.ResponseWriter, r *http.Request) {
 
 func atomicWrite(path string, data []byte) error {
 	dir := filepath.Dir(path)
-	tmp := filepath.Join(dir, ".ports.json.tmp")
+	tmp := filepath.Join(dir, ".services.json.tmp")
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
 	}

@@ -32,9 +32,9 @@ COPY --from=go  /out/portstellar ./portstellar
 COPY --from=spa /app/dist        ./dist
 
 # All config via environment variables.
-# Mount your ports.json at $PORTS_FILE (default /data/ports.json).
+# Mount your services.json at $SERVICES_FILE (default /data/services.json).
 # SQLite DB is persisted in /data volume.
-ENV PORTS_FILE=/data/ports.json \
+ENV SERVICES_FILE=/data/services.json \
     DB_FILE=/data/portstellar.db \
     STATIC_DIR=/app/dist \
     LISTEN_ADDR=:8080 \
