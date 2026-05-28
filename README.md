@@ -2,88 +2,39 @@
 
 > **Map your homelab like a star system.**
 
-Stellar port discovery & uptime monitor for your homelab — JSON-first, single binary.
+A JSON-first port discovery and uptime monitor for homelabs. Define your hosts and services in one file, and Portstellar plots each host as a **sun** with services **orbiting** as port chips — color-coded by category, connected by **live ping rays** that flow green when reachable and snap red with a ✕ when unreachable. Drag, zoom, and arrange the universe to match your mental model.
 
-Portstellar turns your home server inventory into a navigable star map. Define your hosts and services in a single `ports.json`, and Portstellar plots each host as a **sun** with its services **orbiting** around it as port chips — color-coded by category, connected by **live ping rays** that flow green when reachable and snap red with a ✕ when unreachable. Drag, zoom, and arrange the universe to match your mental model.
-
-One Go binary. One SQLite file. One Docker container.
+> ⚠️ **Status: Phase 1 (UI) shipped. Backend & Docker are next.** Right now the app runs on Vite dev server with simulated ping. See the [Status](#status) table below.
 
 ---
 
 ## Features
 
 - **Radial mesh** — hosts as suns, services as orbiting port chips with category-colored ray lines
-- **Drag-to-arrange** — drag a sun and its services follow; nudge individual ports to override; layouts persist
-- **Live ping rays** — green flowing dashes on success, red ✕ on failure, gray while probing
-- **Multi-protocol probes** — HTTP, TCP, ICMP, auto-detected from your config (override per service if needed)
+- **Drag-to-arrange** — drag a sun and its services follow; nudge individual ports to override; layouts persist in `localStorage`
+- **Pan & zoom** — drag empty canvas to pan, mouse wheel to zoom centered on cursor, `fit` button auto-centers everything
+- **Live ping rays** — green flowing dashes on success, red ✕ on failure, gray while probing *(simulated in Phase 1, real in Phase 2)*
+- **Multi-protocol probes** — HTTP, TCP, ICMP, auto-detected from your config *(Phase 2)*
 - **JSON-first config** — `ports.json` is the source of truth; no UI editor, no DB write path for topology
-- **Uptime history** — append-only SQLite log of every ping; sparkline & uptime % *(roadmap)*
+- **Uptime history** — append-only SQLite log per ping; sparkline & uptime % *(Phase 3)*
 - **Dual-themed** — dark CRT vibes or paper blueprint vibes
-- **Single binary, single container** — Go + embedded SPA + SQLite; mount config, you're done
+- **Single binary, single container** — Go + embedded SPA + SQLite *(Phase 2/3)*
 
 ---
 
-## Quickstart
-
-### Docker (recommended)
+## Quickstart (now — UI only)
 
 ```bash
-# 1. Create your topology
-cat > ports.json <<EOF
-{
-  "name": "Home Server",
-  "pingIntervalMs": 30000,
-  "categories": [
-    { "id": "infra", "label": "Infra", "color": "#4d9bff" }
-  ],
-  "hosts": [
-    {
-      "id": "homeserver",
-      "name": "homeserver",
-      "ip": "10.20.30.100",
-      "services": [
-        { "id": "ssh",   "name": "SSH",   "port": 22,  "category": "infra" },
-        { "id": "nginx", "name": "nginx", "port": 443, "category": "infra", "url": "https://10.20.30.100" }
-      ]
-    }
-  ]
-}
-EOF
-
-# 2. Run
-docker compose up -d
-
-# 3. Open http://localhost:8080
-```
-
-Compose file:
-```yaml
-services:
-  portstellar:
-    image: ghcr.io/kalfian/portstellar:latest
-    ports: ["8080:8080"]
-    volumes:
-      - ./ports.json:/data/ports.json:ro
-      - portstellar-data:/data
-    cap_add: ["NET_RAW"]   # for ICMP ping
-    restart: unless-stopped
-volumes:
-  portstellar-data:
-```
-
-### Local dev
-
-```bash
-# Frontend (port 5173, hot reload)
+git clone git@github.com:kalfian/portstellar.git
+cd portstellar
 npm install
 npm run dev
-
-# Backend (port 8080) — once Phase 2 lands
-cd backend
-PORTS_FILE=../public/ports.json DB_FILE=./portstellar.db go run .
+# open http://localhost:5173
 ```
 
-Vite proxies `/api` → `http://localhost:8080`, so the SPA always talks through the backend. With no backend running, the frontend falls back to **simulated ping mode** so the UI still works for design tweaks.
+Edit `public/ports.json` to define your topology. The UI hot-reloads.
+
+In this phase, ping status is **simulated** based on each service's `status` field (`running` → green, `stopped` → red, etc). Real probes land in Phase 2.
 
 ---
 
@@ -129,7 +80,7 @@ Vite proxies `/api` → `http://localhost:8080`, so the SPA always talks through
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `name` | string | `"Home Server"` | Shown in header. |
-| `pingIntervalMs` | number | `30000` | Probe interval per service. |
+| `pingIntervalMs` | number | `30000` | Probe interval per service (Phase 2). |
 | `categories[]` | array | required | Color groups. |
 | `hosts[]` | array | required | Hosts and their services. |
 
@@ -150,15 +101,15 @@ Vite proxies `/api` → `http://localhost:8080`, so the SPA always talks through
 | `port` | yes | TCP/UDP port number. |
 | `protocol` | no | `tcp` (default) \| `udp`. |
 | `category` | no | Match a `categories[].id`. |
-| `url` | no | Used for HTTP probe target & "open" link. |
+| `url` | no | Used for HTTP probe target and "open" link. |
 | `description` | no | Shown in detail drawer. |
 | `tags[]` | no | Free-form. |
 | `status` | no | `running` \| `stopped` \| `reserved` \| `unknown`. Manual override marker. |
 | `probe` | no | `{ type: "http"\|"tcp"\|"icmp", target?: string }`. |
 
-### Auto-detected probe type
-If `probe` is not specified, Portstellar picks based on:
-- `url` field set with `http(s)://...` → **HTTP** GET against `url`
+### Auto-detected probe type *(Phase 2)*
+If `probe` is not specified:
+- `url` set with `http(s)://...` → **HTTP** GET against `url`
 - `protocol === "udp"` → **ICMP** ping against `host.ip`
 - Otherwise → **TCP** dial against `host.ip:port`
 
@@ -166,7 +117,29 @@ Override anytime with an explicit `probe` block.
 
 ---
 
-## Architecture
+## JSON-first principle
+
+Portstellar treats `ports.json` as the **source of truth**. There's no in-app config editor and (planned) no database write path that mutates topology. You edit the file, Portstellar reads it. This makes your topology:
+
+- **Version-controllable** — commit your homelab to Git
+- **Backup-friendly** — it's one file
+- **Scriptable** — generate it from `docker ps`, Ansible inventory, Terraform output, or `nmap`
+
+The SQLite database (Phase 2) stores **runtime data only** — ping history and latency samples. Blow it away whenever; the topology survives.
+
+---
+
+## Status
+
+| Phase | Scope | Status |
+|---|---|---|
+| **1** | UI MVP — radial mesh, drag/zoom/pan, themes, Cosmos ornament, simulated ping, layout persistence | ✅ Shipped |
+| **2** | Backend — Go + SQLite + real HTTP/TCP/ICMP probes, `/api/*` endpoints, auto-fallback to simulated mode | 🚧 Next |
+| **3** | Docker — multi-stage image, compose with `/data` volume, polish (sparkline, uptime % badge, "ping now") | ⏳ Planned |
+
+---
+
+## Architecture *(planned — Phase 2/3)*
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -186,17 +159,7 @@ Override anytime with an explicit `probe` block.
        Browser         ports.json (mounted RO)
 ```
 
-### JSON-first principle
-
-Portstellar treats `ports.json` as the **source of truth**. There's no in-app config editor and no database write path that mutates topology. You edit the file, Portstellar reads it. This makes the topology:
-
-- **Version-controllable** — commit your homelab to Git
-- **Backupable** — it's one file
-- **Scriptable** — generate it from `docker ps`, Ansible inventory, Terraform output, or `nmap`
-
-The SQLite database stores **runtime data only** — ping history and latency samples. Blow it away whenever; the topology survives.
-
-### API
+### API surface *(Phase 2)*
 
 | Method | Path | Notes |
 |---|---|---|
@@ -208,22 +171,23 @@ The SQLite database stores **runtime data only** — ping history and latency sa
 
 ---
 
-## Status
+## Tech
 
-Phase 1 — **UI MVP** ✅ — radial mesh, drag/zoom/pan, themes, ornament, simulated ping
-Phase 2 — **Backend** 🚧 — Go + SQLite + real probes (HTTP/TCP/ICMP), live ping API
-Phase 3 — **Docker** ⏳ — multi-stage image, compose, polish (sparkline, uptime %)
-
-See [PLAN.md](./PLAN.md) for full roadmap and [SPECS.md](./SPECS.md) for design details.
+| Layer | Stack |
+|---|---|
+| Frontend | Vite + React + TypeScript + TailwindCSS + IBM Plex Sans/Mono |
+| Backend *(Phase 2)* | Go 1.22+, stdlib `net/http` & `log/slog` |
+| DB *(Phase 2)* | SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO) |
+| ICMP *(Phase 2)* | [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing) |
+| Deploy *(Phase 3)* | Docker multi-stage → single image, single port |
 
 ---
 
-## Tech
+## Contributing
 
-- **Frontend**: Vite + React + TypeScript + TailwindCSS + IBM Plex Sans/Mono
-- **Backend**: Go 1.22+ (stdlib `net/http`, `log/slog`)
-- **DB**: SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO)
-- **ICMP**: [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing)
+Issues and pull requests welcome. Before submitting code:
+- Run `npx tsc -b` to ensure types check
+- Keep `ports.json` schema changes documented in this README
 
 ---
 
@@ -231,4 +195,4 @@ See [PLAN.md](./PLAN.md) for full roadmap and [SPECS.md](./SPECS.md) for design 
 
 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
 
-Portstellar is free to use, modify, and self-host. If you run a modified version on a server that others access (including SaaS), you must publish your modifications under the same license. See LICENSE for full terms.
+Portstellar is free to use, modify, and self-host. If you run a modified version on a server that others access (including SaaS), you must publish your modifications under the same license. See [LICENSE](./LICENSE) for full terms.
