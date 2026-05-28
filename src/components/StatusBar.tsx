@@ -1,9 +1,11 @@
 import { useClock, fmtDate, fmtTime } from "../lib/clock";
 import type { PortsConfig } from "../types";
+import type { PingMap } from "../lib/ping";
 import { useWs } from "../lib/WsContext";
 
 interface Props {
   data: PortsConfig | null;
+  pings: PingMap;
   onToggleTheme: () => void;
   theme: "dark" | "light";
   onResetPositions: () => void;
@@ -14,6 +16,7 @@ interface Props {
 
 export function StatusBar({
   data,
+  pings,
   onToggleTheme,
   theme,
   onResetPositions,
@@ -24,8 +27,16 @@ export function StatusBar({
   const now = useClock();
   const hosts = data?.hosts.length ?? 0;
   const services = data?.services.length ?? 0;
-  const running = data?.services.filter((s) => s.status === "running").length ?? 0;
-  const stopped = data?.services.filter((s) => s.status === "stopped").length ?? 0;
+
+  // Count from live ping results — fall back to config status when no pings yet
+  const pingValues = Object.values(pings);
+  const hasPings = pingValues.length > 0;
+  const up = hasPings
+    ? pingValues.filter((p) => p.state === "ok").length
+    : (data?.services.filter((s) => s.status === "running").length ?? 0);
+  const down = hasPings
+    ? pingValues.filter((p) => p.state === "fail").length
+    : (data?.services.filter((s) => s.status === "stopped").length ?? 0);
 
   return (
     <header className="border-b border-current/20 dark:border-phos/25 select-none">
@@ -46,8 +57,8 @@ export function StatusBar({
 
         <Stat label="hosts" value={hosts} />
         <Stat label="svc" value={services} />
-        <Stat label="up" value={running} color="phos-glow" />
-        <Stat label="down" value={stopped} color="text-[#ff5757]" />
+        <Stat label="up" value={up} color="phos-glow" />
+        <Stat label="down" value={down} color="text-[#ff5757]" />
 
         <div className="ml-auto flex items-stretch">
           <ModeBadge pingMode={pingMode} source={source} />

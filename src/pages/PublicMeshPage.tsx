@@ -61,6 +61,7 @@ function PublicMeshPageInner({ data, error, loading, source }: InnerProps) {
 
       <StatusBar
         data={data}
+        pings={pings}
         onToggleTheme={toggleTheme}
         theme={theme}
         onResetPositions={resetAll}
