@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { Host, Service } from "../types";
+import { fetchPingsLatest, type ApiPingState } from "./api";
+import type { WsMessage } from "./ws";
 
 export type PingState = "idle" | "pinging" | "ok" | "fail";
+export type PingMode = "simulated" | "remote" | "live-ws";
 
 export interface PingResult {
   state: PingState;
@@ -43,18 +46,121 @@ async function realPing(url: string, timeoutMs: number): Promise<boolean> {
   }
 }
 
+/** Convert backend API response to PingMap */
+function apiToPingMap(states: ApiPingState[]): PingMap {
+  const map: PingMap = {};
+  for (const s of states) {
+    map[s.serviceId] = {
+      state: s.ok ? "ok" : "fail",
+      lastChecked: s.ts,
+      latencyMs: s.latencyMs,
+    };
+  }
+  return map;
+}
+
 export function usePings(
   services: Service[],
   hosts: Host[],
   intervalMs: number,
-  options?: { real?: boolean }
+  options?: {
+    real?: boolean;
+    source?: "api" | "static" | null;
+    wsConnected?: boolean;
+    subscribe?: (fn: (msg: WsMessage) => void) => () => void;
+  }
 ) {
   const real = options?.real ?? false;
+  const source = options?.source ?? null;
+  const wsConnected = options?.wsConnected ?? false;
+  const subscribe = options?.subscribe;
   const [pings, setPings] = useState<PingMap>({});
+  const [mode, setMode] = useState<PingMode>("simulated");
+  const modeRef = useRef<PingMode>("simulated");
+
+  // Remote polling mode (backend available)
+  const pollRemote = useCallback(async () => {
+    try {
+      const states = await fetchPingsLatest();
+      setPings(apiToPingMap(states));
+      if (modeRef.current !== "remote") {
+        modeRef.current = "remote";
+        setMode("remote");
+      }
+    } catch {
+      // API unreachable — will stay on simulated or switch to it
+      if (modeRef.current !== "simulated") {
+        modeRef.current = "simulated";
+        setMode("simulated");
+      }
+      return false;
+    }
+    return true;
+  }, []);
+
+  // WebSocket live mode: subscribe to ping_result events
+  useEffect(() => {
+    if (source !== "api" || !wsConnected || !subscribe) return;
+
+    // Transition mode to live-ws
+    if (modeRef.current !== "live-ws") {
+      modeRef.current = "live-ws";
+      setMode("live-ws");
+    }
+
+    const unsub = subscribe((msg) => {
+      if (msg.type !== "ping_result") return;
+      setPings((prev) => ({
+        ...prev,
+        [msg.serviceId]: {
+          state: msg.ok ? "ok" : "fail",
+          latencyMs: msg.latencyMs,
+          lastChecked: msg.ts,
+        },
+      }));
+    });
+
+    return unsub;
+  }, [source, wsConnected, subscribe]);
+
+  // When WS drops, revert to polling mode label
+  useEffect(() => {
+    if (source !== "api") return;
+    if (!wsConnected && modeRef.current === "live-ws") {
+      modeRef.current = "remote";
+      setMode("remote");
+    }
+  }, [source, wsConnected]);
 
   useEffect(() => {
     let cancelled = false;
     const hostMap = new Map(hosts.map((h) => [h.id, h]));
+
+    // If source is "api", do initial fetch then conditionally poll
+    if (source === "api") {
+      // Always do an initial fetch to populate state
+      pollRemote();
+
+      // Only poll when WS is not connected
+      if (wsConnected) {
+        return () => { cancelled = true; };
+      }
+
+      // Poll at intervalMs/3 but min 5s
+      const pollInterval = Math.max(5000, Math.floor(intervalMs / 3));
+      const id = setInterval(() => {
+        if (!cancelled) pollRemote();
+      }, pollInterval);
+
+      return () => {
+        cancelled = true;
+        clearInterval(id);
+      };
+    }
+
+    // Simulated mode (no backend)
+    modeRef.current = "simulated";
+    setMode("simulated");
 
     async function probe(s: Service): Promise<boolean> {
       const host = hostMap.get(s.host);
@@ -107,7 +213,7 @@ export function usePings(
       cancelled = true;
       clearInterval(id);
     };
-  }, [services, hosts, intervalMs, real]);
+  }, [services, hosts, intervalMs, real, source, wsConnected, pollRemote]);
 
-  return pings;
+  return { pings, mode };
 }

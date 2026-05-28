@@ -1,5 +1,6 @@
 import { useClock, fmtDate, fmtTime } from "../lib/clock";
 import type { PortsConfig } from "../types";
+import { useWs } from "../lib/WsContext";
 
 interface Props {
   data: PortsConfig | null;
@@ -7,6 +8,8 @@ interface Props {
   theme: "dark" | "light";
   onResetPositions: () => void;
   customCount: number;
+  pingMode: "simulated" | "remote" | "live-ws";
+  source: "api" | "static" | null;
 }
 
 export function StatusBar({
@@ -15,6 +18,8 @@ export function StatusBar({
   theme,
   onResetPositions,
   customCount,
+  pingMode,
+  source,
 }: Props) {
   const now = useClock();
   const hosts = data?.hosts.length ?? 0;
@@ -45,6 +50,7 @@ export function StatusBar({
         <Stat label="down" value={stopped} color="text-[#ff5757]" />
 
         <div className="ml-auto flex items-stretch">
+          <ModeBadge pingMode={pingMode} source={source} />
           {customCount > 0 && (
             <button
               onClick={onResetPositions}
@@ -95,6 +101,51 @@ function Stat({
         }`}
       >
         {String(value).padStart(2, "0")}
+      </span>
+    </div>
+  );
+}
+
+function ModeBadge({
+  pingMode,
+  source,
+}: {
+  pingMode: "simulated" | "remote" | "live-ws";
+  source: "api" | "static" | null;
+}) {
+  const { connected: wsConnected } = useWs();
+  const isWs = pingMode === "live-ws" && wsConnected;
+  const isLive = isWs || (pingMode === "remote" && source === "api");
+
+  let label: string;
+  let title: string;
+  if (isWs) {
+    label = "live ws";
+    title = "WebSocket connected — real-time push updates";
+  } else if (isLive) {
+    label = "live";
+    title = "Connected to backend — real ping data (polling)";
+  } else {
+    label = "offline";
+    title = "Offline mode — simulated ping data";
+  }
+
+  return (
+    <div
+      className="hidden sm:flex items-center px-3 border-l border-current/20 dark:border-phos/25 gap-1.5"
+      title={title}
+    >
+      <span
+        className={`inline-block w-1.5 h-1.5 rounded-full ${
+          isWs
+            ? "bg-sky-400 shadow-[0_0_4px_theme(colors.sky.400)]"
+            : isLive
+            ? "bg-emerald-400 shadow-[0_0_4px_theme(colors.emerald.400)]"
+            : "bg-amber-400 shadow-[0_0_4px_theme(colors.amber.400)]"
+        }`}
+      />
+      <span className="opacity-70 text-[10px] tracking-[0.18em] uppercase">
+        {label}
       </span>
     </div>
   );

@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PortsConfig, RawConfig, Service } from "../types";
+import { fetchConfig } from "../lib/api";
 
 interface LoaderState {
   data: PortsConfig | null;
   error: string | null;
   loading: boolean;
+  source: "api" | "static" | null;
 }
 
 function flatten(raw: RawConfig): PortsConfig {
@@ -47,36 +49,45 @@ export function usePorts(): LoaderState {
     data: null,
     error: null,
     loading: true,
+    source: null,
   });
 
+  // Guard against StrictMode double-invoke: only run once per mount.
+  const didFetch = useRef(false);
+
   useEffect(() => {
-    let cancelled = false;
-    fetch("/ports.json", { cache: "no-store" })
-      .then(async (r) => {
+    if (didFetch.current) return;
+    didFetch.current = true;
+
+    async function load() {
+      // Try API first
+      try {
+        const json = await fetchConfig();
+        const data = validate(json);
+        setState({ data, error: null, loading: false, source: "api" });
+        return;
+      } catch {
+        // API unavailable or invalid — fall through to static
+      }
+
+      // Fallback: static /ports.json
+      try {
+        const r = await fetch("/ports.json", { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((json) => {
-        if (cancelled) return;
-        try {
-          const data = validate(json);
-          setState({ data, error: null, loading: false });
-        } catch (e) {
-          setState({
-            data: null,
-            error: e instanceof Error ? e.message : String(e),
-            loading: false,
-          });
-        }
-      })
-      .catch((e: Error) => {
-        if (!cancelled) {
-          setState({ data: null, error: e.message, loading: false });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+        const json = await r.json();
+        const data = validate(json);
+        setState({ data, error: null, loading: false, source: "static" });
+      } catch (e) {
+        setState({
+          data: null,
+          error: e instanceof Error ? e.message : String(e),
+          loading: false,
+          source: null,
+        });
+      }
+    }
+
+    load();
   }, []);
 
   return state;

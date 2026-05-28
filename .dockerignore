@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.claude
+*.db
+*.db-wal
+*.db-shm
+backend/portstellar
+backend/portstellar.db

@@ -3,6 +3,7 @@ import type { Host, Service, Category } from "../types";
 import type { PosMap, Pos } from "../lib/positions";
 import { pickColor } from "../lib/color";
 import type { PingMap } from "../lib/ping";
+import { latencyColor, latencyColorLight } from "./Sparkline";
 
 interface Props {
   hosts: Host[];
@@ -576,7 +577,9 @@ export function MeshView({
                 const isFail = ping?.state === "fail";
                 const isPinging = ping?.state === "pinging";
 
-                const okColor = theme === "light" ? "#15803d" : "#4ade80";
+                const okColor = theme === "light"
+                  ? latencyColorLight(ping?.latencyMs, true)
+                  : latencyColor(ping?.latencyMs, true);
                 const failColor = theme === "light" ? "#b91c1c" : "#f87171";
                 const probColor = theme === "light" ? "#64748b" : "#94a3b8";
 

@@ -2,9 +2,41 @@
 
 > **Map your homelab like a star system.**
 
-A JSON-first port discovery and uptime monitor for homelabs. Define your hosts and services in one file, and Portstellar plots each host as a **sun** with services **orbiting** as port chips — color-coded by category, connected by **live ping rays** that flow green when reachable and snap red with a ✕ when unreachable. Drag, zoom, and arrange the universe to match your mental model.
+A JSON-first port discovery and uptime monitor for homelabs. Define your hosts and services in one file, and Portstellar plots each host as a **sun** with services **orbiting** as port chips — color-coded by category, connected by **live ping rays** that flow green when reachable, yellow when degraded, and snap red with a ✕ when unreachable. Drag, zoom, and arrange the universe to match your mental model.
 
-> ⚠️ **Status: Phase 1 (UI) shipped. Backend & Docker are next.** Right now the app runs on Vite dev server with simulated ping. See the [Status](#status) table below.
+---
+
+## Quickstart
+
+### Docker (recommended)
+
+```bash
+git clone git@github.com:kalfian/portstellar.git
+cd portstellar
+
+# Edit public/ports.json with your hosts and services, then:
+docker compose up -d
+
+# Open http://localhost:8080
+```
+
+That's it. The container builds the SPA and Go binary, starts probing, and serves everything on port 8080.
+
+### Dev mode
+
+```bash
+# Terminal 1 — backend
+cd backend
+go run .
+# Listens on :8080, starts probing immediately
+
+# Terminal 2 — frontend
+npm install
+npm run dev
+# Opens on :5173, proxies /api → :8080
+```
+
+The frontend auto-detects the backend. If the backend is down, it falls back to **simulated ping** with an amber "offline" badge.
 
 ---
 
@@ -13,28 +45,13 @@ A JSON-first port discovery and uptime monitor for homelabs. Define your hosts a
 - **Radial mesh** — hosts as suns, services as orbiting port chips with category-colored ray lines
 - **Drag-to-arrange** — drag a sun and its services follow; nudge individual ports to override; layouts persist in `localStorage`
 - **Pan & zoom** — drag empty canvas to pan, mouse wheel to zoom centered on cursor, `fit` button auto-centers everything
-- **Live ping rays** — green flowing dashes on success, red ✕ on failure, gray while probing *(simulated in Phase 1, real in Phase 2)*
-- **Multi-protocol probes** — HTTP, TCP, ICMP, auto-detected from your config *(Phase 2)*
+- **Live ping rays** — green flowing dashes on success, yellow for high-latency, red ✕ on failure, gray while probing
+- **Multi-protocol probes** — HTTP, TCP, ICMP, auto-detected from your config
+- **Uptime tracking** — 24h uptime %, sparkline latency chart in detail drawer
 - **JSON-first config** — `ports.json` is the source of truth; no UI editor, no DB write path for topology
-- **Uptime history** — append-only SQLite log per ping; sparkline & uptime % *(Phase 3)*
 - **Dual-themed** — dark CRT vibes or paper blueprint vibes
-- **Single binary, single container** — Go + embedded SPA + SQLite *(Phase 2/3)*
-
----
-
-## Quickstart (now — UI only)
-
-```bash
-git clone git@github.com:kalfian/portstellar.git
-cd portstellar
-npm install
-npm run dev
-# open http://localhost:5173
-```
-
-Edit `public/ports.json` to define your topology. The UI hot-reloads.
-
-In this phase, ping status is **simulated** based on each service's `status` field (`running` → green, `stopped` → red, etc). Real probes land in Phase 2.
+- **Single binary, single container** — Go + embedded SPA + SQLite
+- **Auto-fallback** — frontend works without backend (simulated mode) with live/offline indicator
 
 ---
 
@@ -80,17 +97,17 @@ In this phase, ping status is **simulated** based on each service's `status` fie
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `name` | string | `"Home Server"` | Shown in header. |
-| `pingIntervalMs` | number | `30000` | Probe interval per service (Phase 2). |
-| `categories[]` | array | required | Color groups. |
+| `pingIntervalMs` | number | `30000` | Probe interval in milliseconds. |
+| `categories[]` | array | required | Color groups for services. |
 | `hosts[]` | array | required | Hosts and their services. |
 
 **Host**
 | Field | Required | Notes |
 |---|---|---|
-| `id` | yes | Unique. |
-| `name` | yes | Display name (sun core). |
-| `ip` | yes | Used for default probe target. |
-| `note` | no | Free-text. |
+| `id` | yes | Unique identifier. |
+| `name` | yes | Display name (sun core label). |
+| `ip` | yes | Used for probe target. |
+| `note` | no | Free-text description. |
 | `services[]` | yes (may be empty) | Nested services. |
 
 **Service**
@@ -101,45 +118,33 @@ In this phase, ping status is **simulated** based on each service's `status` fie
 | `port` | yes | TCP/UDP port number. |
 | `protocol` | no | `tcp` (default) \| `udp`. |
 | `category` | no | Match a `categories[].id`. |
-| `url` | no | Used for HTTP probe target and "open" link. |
+| `url` | no | HTTP probe target and "open" link. |
 | `description` | no | Shown in detail drawer. |
-| `tags[]` | no | Free-form. |
-| `status` | no | `running` \| `stopped` \| `reserved` \| `unknown`. Manual override marker. |
-| `probe` | no | `{ type: "http"\|"tcp"\|"icmp", target?: string }`. |
+| `tags[]` | no | Free-form tags. |
+| `status` | no | `running` \| `stopped` \| `reserved` \| `unknown`. |
+| `probe` | no | `{ "type": "http" | "tcp" | "icmp" }` — override auto-detection. |
 
-### Auto-detected probe type *(Phase 2)*
-If `probe` is not specified:
-- `url` set with `http(s)://...` → **HTTP** GET against `url`
-- `protocol === "udp"` → **ICMP** ping against `host.ip`
-- Otherwise → **TCP** dial against `host.ip:port`
+### Probe type auto-detection
+
+If `probe` is not specified, the backend auto-detects:
+1. **Explicit** `probe.type` → use that
+2. **URL** set with `http(s)://...` → **HTTP** GET against `url` (success if status < 500)
+3. **Protocol** is `udp` → **ICMP** ping against `host.ip`
+4. **Default** → **TCP** dial against `host.ip:port`
 
 Override anytime with an explicit `probe` block.
 
----
+### Probe details
 
-## JSON-first principle
-
-Portstellar treats `ports.json` as the **source of truth**. There's no in-app config editor and (planned) no database write path that mutates topology. You edit the file, Portstellar reads it. This makes your topology:
-
-- **Version-controllable** — commit your homelab to Git
-- **Backup-friendly** — it's one file
-- **Scriptable** — generate it from `docker ps`, Ansible inventory, Terraform output, or `nmap`
-
-The SQLite database (Phase 2) stores **runtime data only** — ping history and latency samples. Blow it away whenever; the topology survives.
+| Type | Method | Success criteria | Timeout |
+|---|---|---|---|
+| HTTP | `GET url` (skip TLS verify) | Status < 500 | 4s |
+| TCP | `net.Dial("tcp", host:port)` | Connection opens | 4s |
+| ICMP | pro-bing, 1 packet | Reply received | 4s |
 
 ---
 
-## Status
-
-| Phase | Scope | Status |
-|---|---|---|
-| **1** | UI MVP — radial mesh, drag/zoom/pan, themes, Cosmos ornament, simulated ping, layout persistence | ✅ Shipped |
-| **2** | Backend — Go + SQLite + real HTTP/TCP/ICMP probes, `/api/*` endpoints, auto-fallback to simulated mode | 🚧 Next |
-| **3** | Docker — multi-stage image, compose with `/data` volume, polish (sparkline, uptime % badge, "ping now") | ⏳ Planned |
-
----
-
-## Architecture *(planned — Phase 2/3)*
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -159,15 +164,58 @@ The SQLite database (Phase 2) stores **runtime data only** — ping history and 
        Browser         ports.json (mounted RO)
 ```
 
-### API surface *(Phase 2)*
+### API
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/config` | Raw `ports.json` |
+| GET | `/api/config` | Raw `ports.json` contents |
 | GET | `/api/pings/latest` | Current state per service |
-| GET | `/api/pings/history?service=<id>&range=24h` | Time-series for sparkline |
-| GET | `/api/health` | Liveness + last tick info |
+| GET | `/api/pings/history?service=<id>&range=<hours>` | Time-series for sparkline (default 24h) |
+| GET | `/api/health` | `{ status, uptime, lastTick }` |
 | GET | `/*` | SPA fallback to `index.html` |
+
+---
+
+## Docker
+
+### Build & run
+
+```bash
+docker compose up -d
+# → UI on http://localhost:8080
+```
+
+### Volumes
+
+| Mount | Purpose |
+|---|---|
+| `./public/ports.json:/data/ports.json:ro` | Your topology config (read-only) |
+| `portstellar-data:/data` | SQLite database (persists across restarts) |
+
+### ICMP
+
+The container needs `NET_RAW` capability for privileged ICMP (already in `docker-compose.yml`). The prober tries unprivileged UDP-based ping first and falls back to privileged raw socket.
+
+### Environment variables
+
+| Var | Default | Notes |
+|---|---|---|
+| `PORTS_FILE` | `/data/ports.json` | Path to config file |
+| `DB_FILE` | `/data/portstellar.db` | SQLite database path |
+| `STATIC_DIR` | `/app/dist` | SPA build directory |
+| `LISTEN_ADDR` | `:8080` | HTTP listen address |
+
+---
+
+## JSON-first principle
+
+Portstellar treats `ports.json` as the **source of truth**. There's no in-app config editor and no database write path that mutates topology. You edit the file, Portstellar reads it. This makes your topology:
+
+- **Version-controllable** — commit your homelab to Git
+- **Backup-friendly** — it's one file
+- **Scriptable** — generate it from `docker ps`, Ansible inventory, Terraform output, or `nmap`
+
+The SQLite database stores **runtime data only** — ping history and latency samples. Blow it away whenever; the topology survives.
 
 ---
 
@@ -176,17 +224,18 @@ The SQLite database (Phase 2) stores **runtime data only** — ping history and 
 | Layer | Stack |
 |---|---|
 | Frontend | Vite + React + TypeScript + TailwindCSS + IBM Plex Sans/Mono |
-| Backend *(Phase 2)* | Go 1.22+, stdlib `net/http` & `log/slog` |
-| DB *(Phase 2)* | SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO) |
-| ICMP *(Phase 2)* | [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing) |
-| Deploy *(Phase 3)* | Docker multi-stage → single image, single port |
+| Backend | Go 1.22+, stdlib `net/http` & `log/slog` |
+| DB | SQLite via [`modernc.org/sqlite`](https://gitlab.com/cznic/sqlite) (pure Go, no CGO) |
+| ICMP | [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing) |
+| Deploy | Docker multi-stage → single alpine image, single port |
 
 ---
 
 ## Contributing
 
 Issues and pull requests welcome. Before submitting code:
-- Run `npx tsc -b` to ensure types check
+- Run `npx tsc --noEmit` to ensure types check
+- Run `cd backend && go build .` to ensure Go compiles
 - Keep `ports.json` schema changes documented in this README
 
 ---

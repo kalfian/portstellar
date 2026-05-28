@@ -1,0 +1,15 @@
+services:
+  portstellar:
+    build: .
+    container_name: portstellar
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./public/ports.json:/data/ports.json:ro
+      - portstellar-data:/data
+    cap_add:
+      - NET_RAW    # ICMP privileged fallback
+    restart: unless-stopped
+
+volumes:
+  portstellar-data:
