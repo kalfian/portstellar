@@ -1,15 +1,36 @@
+# docker-compose.yml — local dev / self-hosted
+#
+# Required: create ports.json in this directory first.
+# Copy public/ports.json as a starting point, then edit.
+#
+# Quickstart:
+#   cp public/ports.json ./ports.json
+#   docker compose up -d
+#   open http://localhost:8080          # public mesh
+#   open http://localhost:8080/admin    # admin (default pw: 123456)
+
 services:
   portstellar:
-    build: .
+    image: ghcr.io/kalfian/portstellar:latest
+    # Uncomment to build from source instead:
+    # build: .
     container_name: portstellar
     ports:
       - "8080:8080"
     volumes:
-      - ./public/ports.json:/data/ports.json:ro
-      - portstellar-data:/data
+      - ./ports.json:/data/ports.json:ro   # topology config (read-only)
+      - portstellar-data:/data             # SQLite DB persisted here
+    environment:
+      ADMIN_PASSWORD: "123456"             # change in production
+      # LISTEN_ADDR: ":8080"
     cap_add:
-      - NET_RAW    # ICMP privileged fallback
+      - NET_RAW                            # needed for ICMP probes
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   portstellar-data:

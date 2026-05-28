@@ -2,8 +2,16 @@ node_modules
 dist
 .git
 .claude
+.github
+dev.sh
+
+# SQLite files (runtime only, not for build)
 *.db
 *.db-wal
 *.db-shm
 backend/portstellar
 backend/portstellar.db
+backend/ports.json
+
+# Docs / meta
+README.md
