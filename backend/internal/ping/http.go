@@ -10,12 +10,15 @@ import (
 
 // ProbeHTTP sends an HTTP GET and returns success if status < 500.
 func ProbeHTTP(ctx context.Context, url string, timeoutMs int) (ok bool, errMsg string, latencyMs int) {
+	return ProbeHTTPWithHost(ctx, url, timeoutMs, "")
+}
+
+func ProbeHTTPWithHost(ctx context.Context, url string, timeoutMs int, hostHeader string) (ok bool, errMsg string, latencyMs int) {
 	client := &http.Client{
 		Timeout: time.Duration(timeoutMs) * time.Millisecond,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
-		// Don't follow redirects — just check the initial response
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -27,6 +30,9 @@ func ProbeHTTP(ctx context.Context, url string, timeoutMs int) (ok bool, errMsg 
 		return false, fmt.Sprintf("bad url: %v", err), 0
 	}
 	req.Header.Set("User-Agent", "portstellar/1.0")
+	if hostHeader != "" {
+		req.Host = hostHeader
+	}
 
 	resp, err := client.Do(req)
 	latencyMs = int(time.Since(t0).Milliseconds())

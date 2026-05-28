@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
+	neturl "net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +25,7 @@ const (
 
 // serviceSchedule tracks when each service was last probed.
 type serviceSchedule struct {
-	mu       sync.Mutex
+	mu        sync.Mutex
 	lastProbe map[string]time.Time
 }
 
@@ -261,12 +264,73 @@ func (d *Dispatcher) probe(ctx context.Context, s config.FlatService) (ok bool, 
 		if url == "" {
 			url = fmt.Sprintf("http://%s:%d", s.HostIP, s.Port)
 		}
-		return ProbeHTTP(ctx, url, defaultTimeoutMs)
+		ok, errMsg, latencyMs := ProbeHTTP(ctx, url, defaultTimeoutMs)
+		if ok || !isLocalDomainURL(url) {
+			return ok, errMsg, latencyMs
+		}
+		fallbackURL, hostHeader, canFallback := buildLocalDomainFallback(url, s)
+		if canFallback {
+			ok2, errMsg2, latencyMs2 := ProbeHTTPWithHost(ctx, fallbackURL, defaultTimeoutMs, hostHeader)
+			if ok2 {
+				return true, "", latencyMs2
+			}
+			if s.Port > 0 {
+				ok3, errMsg3, latencyMs3 := ProbeTCP(ctx, s.HostIP, s.Port, defaultTimeoutMs)
+				if ok3 {
+					return true, "", latencyMs3
+				}
+				return false, fmt.Sprintf("%s; fallback http: %s; fallback tcp: %s", errMsg, errMsg2, errMsg3), latencyMs3
+			}
+			return false, fmt.Sprintf("%s; fallback http: %s", errMsg, errMsg2), latencyMs2
+		}
+		return ok, errMsg, latencyMs
 	case "icmp":
 		return ProbeICMP(ctx, s.HostIP, defaultTimeoutMs)
 	default: // "tcp"
 		return ProbeTCP(ctx, s.HostIP, s.Port, defaultTimeoutMs)
 	}
+}
+
+func isLocalDomainURL(raw string) bool {
+	u, err := neturl.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return strings.HasSuffix(host, ".local")
+}
+
+func buildLocalDomainFallback(raw string, s config.FlatService) (fallbackURL string, hostHeader string, ok bool) {
+	if s.HostIP == "" {
+		return "", "", false
+	}
+	u, err := neturl.Parse(raw)
+	if err != nil {
+		return "", "", false
+	}
+	port := u.Port()
+	if port == "" && s.Port > 0 {
+		port = strconv.Itoa(s.Port)
+	}
+	hostHeader = u.Host
+	if hostHeader == "" {
+		hostHeader = u.Hostname()
+	}
+	if hostHeader == "" {
+		return "", "", false
+	}
+	targetHost := s.HostIP
+	if port != "" {
+		targetHost = net.JoinHostPort(s.HostIP, port)
+	}
+	path := u.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	if u.RawQuery != "" {
+		path += "?" + u.RawQuery
+	}
+	return fmt.Sprintf("%s://%s%s", u.Scheme, targetHost, path), hostHeader, true
 }
 
 // detectProbeType determines probe type from service config.

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useAuth } from "../auth/AuthContext";
+import { saveMeshPositions } from "../lib/api";
 import { usePorts } from "../data/loader";
 import { useTheme } from "../lib/useTheme";
 import { usePositions, useHostPositions } from "../lib/positions";
@@ -28,13 +30,17 @@ interface InnerProps {
 
 function PublicMeshPageInner({ data, error, loading, source }: InnerProps) {
   const [theme, toggleTheme] = useTheme();
-  const { positions, set: setPosition, reset: resetPositions } = usePositions();
+  const { token } = useAuth();
+  const meshId = "default";
+  const { positions, set: setPosition, replace: replacePositions, reset: resetPositions } = usePositions(meshId);
   const {
     positions: hostPositions,
     set: setHostPosition,
+    replace: replaceHostPositions,
     reset: resetHostPositions,
-  } = useHostPositions();
+  } = useHostPositions(meshId);
   const [picked, setPicked] = useState<Service | null>(null);
+  const [savePending, setSavePending] = useState(false);
   const { connected: wsConnected, subscribe: wsSubscribe } = useWs();
 
   const { pings, mode: pingMode } = usePings(
@@ -46,9 +52,42 @@ function PublicMeshPageInner({ data, error, loading, source }: InnerProps) {
 
   const customCount =
     Object.keys(positions).length + Object.keys(hostPositions).length;
+
+  const savePositions = async () => {
+    if (!token) {
+      alert("Login admin dulu untuk save posisi");
+      return;
+    }
+    setSavePending(true);
+    try {
+      const saved = await saveMeshPositions(token, meshId, {
+        hosts: hostPositions,
+        services: positions,
+      });
+      replacePositions(saved.services ?? {});
+      replaceHostPositions(saved.hosts ?? {});
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal save posisi");
+    } finally {
+      setSavePending(false);
+    }
+  };
+
   const resetAll = () => {
     resetPositions();
     resetHostPositions();
+  };
+
+  const resetAndSave = async () => {
+    resetAll();
+    if (!token) return;
+    setSavePending(true);
+    try {
+      await saveMeshPositions(token, meshId, { hosts: {}, services: {} });
+    } catch {
+    } finally {
+      setSavePending(false);
+    }
   };
 
   return (
@@ -64,7 +103,10 @@ function PublicMeshPageInner({ data, error, loading, source }: InnerProps) {
         pings={pings}
         onToggleTheme={toggleTheme}
         theme={theme}
-        onResetPositions={resetAll}
+        onResetPositions={resetAndSave}
+        onSavePositions={savePositions}
+        savePending={savePending}
+        canSavePositions={!!token}
         customCount={customCount}
         pingMode={pingMode}
         source={source}

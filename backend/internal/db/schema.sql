@@ -37,3 +37,21 @@ CREATE TABLE IF NOT EXISTS service_settings (
     max_retries  INTEGER NOT NULL DEFAULT 1,
     updated_at   INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mesh_host_positions (
+    mesh_id    TEXT NOT NULL,
+    host_id    TEXT NOT NULL,
+    x          REAL NOT NULL,
+    y          REAL NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (mesh_id, host_id)
+);
+
+CREATE TABLE IF NOT EXISTS mesh_service_positions (
+    mesh_id    TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    x          REAL NOT NULL,
+    y          REAL NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (mesh_id, service_id)
+);

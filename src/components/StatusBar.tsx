@@ -9,6 +9,9 @@ interface Props {
   onToggleTheme: () => void;
   theme: "dark" | "light";
   onResetPositions: () => void;
+  onSavePositions: () => void;
+  savePending: boolean;
+  canSavePositions: boolean;
   customCount: number;
   pingMode: "simulated" | "remote" | "live-ws";
   source: "api" | "static" | null;
@@ -20,6 +23,9 @@ export function StatusBar({
   onToggleTheme,
   theme,
   onResetPositions,
+  onSavePositions,
+  savePending,
+  canSavePositions,
   customCount,
   pingMode,
   source,
@@ -58,16 +64,31 @@ export function StatusBar({
         <div className="ml-auto flex items-stretch">
           <ModeBadge pingMode={pingMode} source={source} />
           {customCount > 0 && (
-            <button
-              onClick={onResetPositions}
-              className="px-3 border-l border-current/20 dark:border-phos/25 hover:bg-phos/10 transition-colors uppercase tracking-[0.18em] flex items-center gap-1.5"
-              title="Reset all custom positions"
-            >
-              <span className="opacity-60">reset</span>
-              <span className="font-display font-semibold phos-glow tabular-nums">
-                {customCount}
-              </span>
-            </button>
+            <>
+              {canSavePositions && (
+                <button
+                  onClick={onSavePositions}
+                  disabled={savePending}
+                  className="px-3 border-l border-current/20 dark:border-phos/25 hover:bg-phos/10 transition-colors uppercase tracking-[0.18em] flex items-center gap-1.5 disabled:opacity-50"
+                  title="Save custom positions to backend"
+                >
+                  <span className="opacity-60">save</span>
+                  <span className="font-display font-semibold phos-glow tabular-nums">
+                    {savePending ? "..." : customCount}
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={onResetPositions}
+                className="px-3 border-l border-current/20 dark:border-phos/25 hover:bg-phos/10 transition-colors uppercase tracking-[0.18em] flex items-center gap-1.5"
+                title="Reset all custom positions"
+              >
+                <span className="opacity-60">reset</span>
+                <span className="font-display font-semibold phos-glow tabular-nums">
+                  {customCount}
+                </span>
+              </button>
+            </>
           )}
           <div className="hidden sm:flex items-center px-4 border-l border-current/20 dark:border-phos/25 gap-3 tabular-nums">
             <span className="opacity-50">{fmtDate(now)}</span>

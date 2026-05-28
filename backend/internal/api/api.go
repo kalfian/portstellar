@@ -57,6 +57,9 @@ func NewHandler(portsFile string, store *db.Store, staticDir string, dispatcher 
 	h.mux.HandleFunc("PUT /api/services/{id}/settings", h.withAuth(h.putServiceSettings))
 	h.mux.HandleFunc("GET /api/services/{id}/stats", h.getServiceStats)
 
+	h.mux.HandleFunc("GET /api/meshes/{mesh}/positions", h.getMeshPositions)
+	h.mux.HandleFunc("PUT /api/meshes/{mesh}/positions", h.withAuth(h.putMeshPositions))
+
 	h.mux.HandleFunc("GET /api/ws", h.serveWS)
 
 	// Static file serving with SPA fallback

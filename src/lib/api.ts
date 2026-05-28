@@ -17,6 +17,36 @@ export interface ApiPingState {
   ts: number;
 }
 
+export interface MeshPositions {
+  meshId: string;
+  hosts: Record<string, { x: number; y: number }>;
+  services: Record<string, { x: number; y: number }>;
+}
+
+export async function fetchMeshPositions(meshId: string): Promise<MeshPositions> {
+  const r = await fetch(apiUrl(`/api/meshes/${encodeURIComponent(meshId)}/positions`), {
+    cache: "no-store",
+    signal: withTimeout(5000),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+export async function saveMeshPositions(
+  token: string,
+  meshId: string,
+  payload: { hosts: Record<string, { x: number; y: number }>; services: Record<string, { x: number; y: number }> }
+): Promise<MeshPositions> {
+  const r = await fetch(apiUrl(`/api/meshes/${encodeURIComponent(meshId)}/positions`), {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+    signal: withTimeout(5000),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export interface ApiHistoryPoint {
   ok: boolean;
   latencyMs: number;

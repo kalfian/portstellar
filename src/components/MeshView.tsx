@@ -88,20 +88,45 @@ function layoutHosts(
     defaults = [{ cx: baseW / 2, cy: baseH / 2 }];
   } else if (N === 2) {
     const [A, B] = infos;
-    // Clearance between outer orbits so chips don't collide
-    const CHIP_CLEARANCE = 220;
-    const gap = A.maxR + B.maxR + CHIP_CLEARANCE;
+    const chipClearance = 220;
+    const gap = A.maxR + B.maxR + chipClearance;
     baseW = A.maxR + gap + B.maxR + PADDING * 2;
     baseH = Math.max(A.maxR, B.maxR) * 2 + PADDING * 2;
     defaults = [
       { cx: PADDING + A.maxR, cy: baseH / 2 },
       { cx: PADDING + A.maxR + gap, cy: baseH / 2 },
     ];
+  } else if (N === 3) {
+    const [top, left, right] = infos;
+    const chipClearance = 220;
+    const hGap =
+      (left.maxR + right.maxR) * 0.78 + chipClearance * 0.25;
+    const vGap =
+      (top.maxR + Math.max(left.maxR, right.maxR)) * 0.74 +
+      chipClearance * 0.2;
+
+    const points = [
+      { r: top.maxR, x: 0, y: -vGap / 2 },
+      { r: left.maxR, x: -hGap / 2, y: vGap / 2 },
+      { r: right.maxR, x: hGap / 2, y: vGap / 2 },
+    ];
+
+    const minX = Math.min(...points.map((p) => p.x - p.r));
+    const maxX = Math.max(...points.map((p) => p.x + p.r));
+    const minY = Math.min(...points.map((p) => p.y - p.r));
+    const maxY = Math.max(...points.map((p) => p.y + p.r));
+
+    baseW = maxX - minX + PADDING * 2;
+    baseH = maxY - minY + PADDING * 2;
+
+    defaults = points.map((p) => ({
+      cx: p.x - minX + PADDING,
+      cy: p.y - minY + PADDING,
+    }));
   } else {
     const maxHostR = Math.max(...infos.map((h) => h.maxR));
-    // Place hosts on a ring with enough radius so orbits + chips don't overlap
-    const chordPerHost = (maxHostR * 2 + 220);
-    const ringR = Math.max(maxHostR * 1.7, chordPerHost / (2 * Math.sin(Math.PI / N)));
+    const chordPerHost = maxHostR * 2 + 220;
+    const ringR = Math.max(maxHostR * 1.6, chordPerHost / (2 * Math.sin(Math.PI / N)));
     const size = (ringR + maxHostR + PADDING) * 2;
     baseW = size;
     baseH = size;

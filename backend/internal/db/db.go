@@ -47,6 +47,17 @@ type ServiceState struct {
 	Timestamp int64  `json:"ts"`
 }
 
+type Position struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type MeshPositions struct {
+	MeshID   string              `json:"meshId"`
+	Hosts    map[string]Position `json:"hosts"`
+	Services map[string]Position `json:"services"`
+}
+
 // HistoryPoint represents a single point in ping history.
 type HistoryPoint struct {
 	OK        bool   `json:"ok"`
@@ -375,6 +386,92 @@ func (s *Store) GetAllServiceSettings(ctx context.Context) ([]ServiceSetting, er
 		out = append(out, st)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) GetMeshPositions(ctx context.Context, meshID string) (MeshPositions, error) {
+	out := MeshPositions{
+		MeshID:   meshID,
+		Hosts:    map[string]Position{},
+		Services: map[string]Position{},
+	}
+
+	hostRows, err := s.db.QueryContext(ctx,
+		`SELECT host_id, x, y FROM mesh_host_positions WHERE mesh_id = ?`,
+		meshID,
+	)
+	if err != nil {
+		return out, err
+	}
+	defer hostRows.Close()
+	for hostRows.Next() {
+		var hostID string
+		var p Position
+		if err := hostRows.Scan(&hostID, &p.X, &p.Y); err != nil {
+			return out, err
+		}
+		out.Hosts[hostID] = p
+	}
+	if err := hostRows.Err(); err != nil {
+		return out, err
+	}
+
+	svcRows, err := s.db.QueryContext(ctx,
+		`SELECT service_id, x, y FROM mesh_service_positions WHERE mesh_id = ?`,
+		meshID,
+	)
+	if err != nil {
+		return out, err
+	}
+	defer svcRows.Close()
+	for svcRows.Next() {
+		var serviceID string
+		var p Position
+		if err := svcRows.Scan(&serviceID, &p.X, &p.Y); err != nil {
+			return out, err
+		}
+		out.Services[serviceID] = p
+	}
+	if err := svcRows.Err(); err != nil {
+		return out, err
+	}
+
+	return out, nil
+}
+
+func (s *Store) ReplaceMeshPositions(ctx context.Context, meshID string, hosts map[string]Position, services map[string]Position) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UnixMilli()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM mesh_host_positions WHERE mesh_id = ?`, meshID); err != nil {
+		return err
+	}
+	for hostID, p := range hosts {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO mesh_host_positions (mesh_id, host_id, x, y, updated_at) VALUES (?, ?, ?, ?, ?)`,
+			meshID, hostID, p.X, p.Y, now,
+		); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM mesh_service_positions WHERE mesh_id = ?`, meshID); err != nil {
+		return err
+	}
+	for serviceID, p := range services {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO mesh_service_positions (mesh_id, service_id, x, y, updated_at) VALUES (?, ?, ?, ?, ?)`,
+			meshID, serviceID, p.X, p.Y, now,
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // Beat represents a single heartbeat result.
