@@ -114,6 +114,9 @@ func (h *Handler) WatchConfigFile(ctx context.Context, interval time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if tracked := h.configFileModTime(); tracked.After(lastMod) {
+				lastMod = tracked
+			}
 			current, err := os.Stat(h.portsFile)
 			if err != nil {
 				slog.Warn("config watcher stat failed", "err", err)
