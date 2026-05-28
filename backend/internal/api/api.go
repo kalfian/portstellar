@@ -122,11 +122,14 @@ func (h *Handler) WatchConfigFile(ctx context.Context, interval time.Duration) {
 			if !current.ModTime().After(lastMod) {
 				continue
 			}
+			modTime := current.ModTime()
 			if err := h.ReloadConfigFromFile(ctx); err != nil {
+				lastMod = modTime
+				h.setConfigFileModTime(lastMod)
 				slog.Warn("config watcher reload failed", "err", err)
 				continue
 			}
-			lastMod = current.ModTime()
+			lastMod = modTime
 			h.setConfigFileModTime(lastMod)
 			slog.Info("config watcher applied services.json", "path", h.portsFile)
 		}
