@@ -126,10 +126,6 @@ func (h *Handler) WatchConfigFile(ctx context.Context, interval time.Duration) {
 	}
 }
 
-func (h *Handler) getConfigPath() string {
-	return h.portsFile
-}
-
 func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(h.portsFile)
 	if err != nil {
