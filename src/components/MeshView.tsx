@@ -18,12 +18,6 @@ interface Props {
   onPick: (s: Service) => void;
 }
 
-const statusGlyph: Record<NonNullable<Service["status"]>, string> = {
-  running: "●",
-  stopped: "○",
-  reserved: "◐",
-  unknown: "?",
-};
 
 interface HostInfo {
   host: Host;
@@ -561,7 +555,6 @@ export function MeshView({
               {placed.map(({ s, hostInfo, x, y, custom }) => {
                 const cat = s.category ? catById.get(s.category) : undefined;
                 const baseColor = cat?.color ?? "#9aa0a6";
-                const isStopped = s.status === "stopped";
                 const ping = pings[s.id];
                 const dx = x - hostInfo.cx;
                 const dy = y - hostInfo.cy;
@@ -595,7 +588,7 @@ export function MeshView({
                   ? "5 5"
                   : isPinging
                     ? "3 5"
-                    : isStopped || isFail
+                    : isFail
                       ? "2 4"
                       : undefined;
 
@@ -618,11 +611,9 @@ export function MeshView({
                           ? 0.9
                           : isOk
                             ? 0.85
-                            : isStopped
-                              ? 0.25
-                              : custom
-                                ? 0.75
-                                : 0.55
+                            : custom
+                              ? 0.75
+                              : 0.55
                       }
                       strokeWidth={isOk || isFail ? 1.4 : custom ? 1.4 : 1}
                       strokeDasharray={dasharray}
@@ -660,7 +651,7 @@ export function MeshView({
                         cy={ey}
                         r={isOk ? 3 : 2.5}
                         fill={stroke}
-                        fillOpacity={isStopped ? 0.3 : 0.95}
+                        fillOpacity={0.95}
                       />
                     )}
                   </g>
@@ -670,9 +661,10 @@ export function MeshView({
 
             {/* Sun cores — draggable */}
             {infos.map((info) => {
-              const running = info.services.filter(
-                (s) => s.status === "running"
+              const okCount = info.services.filter(
+                (s) => pings[s.id]?.state === "ok"
               ).length;
+              const hasAnyPing = info.services.some((s) => pings[s.id]);
               const dragging = draggingHostId === info.host.id;
               return (
                 <div
@@ -708,13 +700,21 @@ export function MeshView({
                     {info.host.ip}
                   </div>
                   <div className="relative text-[10px] uppercase tracking-[0.22em] opacity-90 mt-1 tabular-nums">
-                    <span className="phos-glow">
-                      {String(running).padStart(2, "0")}
-                    </span>
-                    <span className="opacity-60">
-                      /{String(info.services.length).padStart(2, "0")}
-                    </span>{" "}
-                    up
+                    {hasAnyPing ? (
+                      <>
+                        <span className="phos-glow">
+                          {String(okCount).padStart(2, "0")}
+                        </span>
+                        <span className="opacity-60">
+                          /{String(info.services.length).padStart(2, "0")}
+                        </span>{" "}
+                        up
+                      </>
+                    ) : (
+                      <span className="opacity-40">
+                        {String(info.services.length).padStart(2, "0")} svc
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -808,8 +808,6 @@ function OrbitChip({
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
   const color = category?.color ?? "#9aa0a6";
-  const isRunning = service.status === "running";
-  const isStopped = service.status === "stopped";
 
   return (
     <div
@@ -831,9 +829,7 @@ function OrbitChip({
       >
         <div className="flex items-baseline gap-1.5">
           <span
-            className={`font-display font-bold text-[20px] leading-none tabular-nums ${
-              isStopped ? "opacity-40 line-through" : ""
-            }`}
+            className="font-display font-bold text-[20px] leading-none tabular-nums"
             style={{ color }}
           >
             {service.port}
@@ -854,13 +850,11 @@ function OrbitChip({
         </div>
         <div className="flex items-center gap-1 mt-0.5">
           <span
-            className={`text-[9px] leading-none ${
-              isRunning ? "animate-phos-pulse" : ""
-            }`}
+            className="text-[9px] leading-none opacity-80"
             style={{ color }}
             aria-hidden
           >
-            {statusGlyph[service.status ?? "unknown"]}
+            ●
           </span>
           <span
             className="text-[11px] tracking-tight opacity-95 truncate max-w-[140px] font-mono font-medium"

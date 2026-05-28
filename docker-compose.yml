@@ -1,10 +1,10 @@
 # docker-compose.yml — local dev / self-hosted
 #
-# Required: create ports.json in this directory first.
-# Copy public/ports.json as a starting point, then edit.
+# Required: create services.json in this directory first.
+# Copy public/services.json as a starting point, then edit.
 #
 # Quickstart:
-#   cp public/ports.json ./ports.json
+#   cp public/services.json ./services.json
 #   docker compose up -d
 #   open http://localhost:8080          # public mesh
 #   open http://localhost:8080/admin    # admin (default pw: 123456)
@@ -18,7 +18,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./ports.json:/data/ports.json:ro   # topology config (read-only)
+      - ./services.json:/data/services.json      # topology config (writable source of truth)
       - portstellar-data:/data             # SQLite DB persisted here
     environment:
       ADMIN_PASSWORD: "123456"             # change in production

@@ -14,12 +14,8 @@ export interface PingResult {
 
 export type PingMap = Record<string, PingResult>;
 
-function simulate(s: Service): boolean {
-  if (s.status === "stopped") return false;
-  if (s.status === "reserved") return Math.random() < 0.4;
-  if (s.status === "unknown") return Math.random() < 0.6;
-  // running: high success with occasional flap
-  return Math.random() < 0.94;
+function simulate(_s: Service): boolean {
+  return Math.random() < 0.9;
 }
 
 function deriveUrl(s: Service, host: Host): string | null {

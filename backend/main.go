@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -26,10 +27,17 @@ func env(key, fallback string) string {
 func main() {
 	slog.Info("portstellar starting")
 
-	portsFile := env("PORTS_FILE", "ports.json")
+	portsFile := env("SERVICES_FILE", "services.json")
 	dbFile := env("DB_FILE", "portstellar.db")
 	staticDir := env("STATIC_DIR", "../dist")
 	listenAddr := env("LISTEN_ADDR", ":8080")
+	retentionDays := 35
+	if v := env("PING_RETENTION_DAYS", "35"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d > 0 {
+			retentionDays = d
+		}
+	}
+	pingRetention := time.Duration(retentionDays) * 24 * time.Hour
 
 	// Load config
 	cfg, err := config.Load(portsFile)
@@ -58,7 +66,7 @@ func main() {
 	slog.Info("websocket hub started")
 
 	// Start ping dispatcher
-	dispatcher := ping.NewDispatcher(cfg, store, func(serviceID string, ok bool, latencyMs int, errMsg string, ts int64) {
+	dispatcher := ping.NewDispatcher(cfg, store, pingRetention, func(serviceID string, ok bool, latencyMs int, errMsg string, ts int64) {
 		hub.Publish(ws.Message{
 			Type:      ws.TypePingResult,
 			ServiceID: serviceID,
@@ -73,6 +81,7 @@ func main() {
 
 	// HTTP server
 	handler := api.NewHandler(portsFile, store, staticDir, dispatcher, hub)
+	go handler.WatchConfigFile(ctx, 2*time.Second)
 	srv := &http.Server{
 		Addr:         listenAddr,
 		Handler:      handler,

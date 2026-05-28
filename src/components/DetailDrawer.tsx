@@ -191,12 +191,6 @@ export function DetailDrawer({ service, host, category, ping, source, onClose }:
                 <span style={{ color }}>{service.port}</span>
               </span>
 
-              {service.status && (
-                <>
-                  <span className="text-[10px] uppercase tracking-[0.22em] text-white/30 self-center">Status</span>
-                  <span className="text-white/60 text-xs uppercase tracking-wide">{service.status}</span>
-                </>
-              )}
 
               <span className="text-[10px] uppercase tracking-[0.22em] text-white/30 self-start pt-0.5">URL</span>
               <div className="flex items-center gap-2 min-w-0">

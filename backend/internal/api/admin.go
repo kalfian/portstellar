@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kalfian/portstellar/internal/config"
-	"github.com/kalfian/portstellar/internal/ws"
 )
 
 func (h *Handler) adminGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -52,14 +51,19 @@ func (h *Handler) adminPutConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "config saved but reload failed", http.StatusInternalServerError)
 		return
 	}
-	h.dispatcher.UpdateConfig(loaded)
-	h.hub.Publish(ws.Message{Type: ws.TypeConfigUpdated})
+	if err := h.applyLoadedConfig(r.Context(), loaded); err != nil {
+		http.Error(w, "config apply failed", http.StatusInternalServerError)
+		return
+	}
+	if st, err := os.Stat(h.portsFile); err == nil {
+		h.setConfigFileModTime(st.ModTime())
+	}
 	writeJSON(w, map[string]any{"ok": true, "savedAt": time.Now().UnixMilli()})
 }
 
 func atomicWrite(path string, data []byte) error {
 	dir := filepath.Dir(path)
-	tmp := filepath.Join(dir, ".ports.json.tmp")
+	tmp := filepath.Join(dir, ".services.json.tmp")
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
 	}

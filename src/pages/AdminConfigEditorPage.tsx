@@ -3,17 +3,11 @@ import { useAuth } from "../auth/AuthContext";
 import { fetchAdminConfig, saveAdminConfig, fetchServiceSetting, saveServiceSetting } from "../lib/api";
 
 type Category = { id: string; label: string; color: string };
-type Service = { id: string; name: string; port: number; protocol?: string; category?: string; url?: string; description?: string; status?: string; tags?: string[] };
+type Service = { id: string; name: string; port: number; protocol?: string; category?: string; url?: string; description?: string; tags?: string[] };
 type Host = { id: string; name: string; ip: string; note?: string; services: Service[] };
 type Cfg = { name: string; pingIntervalMs: number; categories: Category[]; hosts: Host[] };
 type Tab = "hosts" | "categories" | "global";
 
-const STATUS_COLOR: Record<string, string> = {
-  running: "#22c55e",
-  stopped: "#ef4444",
-  reserved: "#f59e0b",
-  unknown: "#6b7280",
-};
 
 const inp = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:bg-white/8 transition-colors";
 const inpSm = "w-full bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 transition-colors";
@@ -66,7 +60,7 @@ export default function AdminConfigEditorPage() {
 
   function addService() {
     if (!cfg || !currentHost) return;
-    const svc: Service = { id: `svc-${Date.now()}`, name: "New Service", port: 80, protocol: "tcp", status: "unknown" };
+    const svc: Service = { id: `svc-${Date.now()}`, name: "New Service", port: 80, protocol: "tcp" };
     patchHost(currentHost.id, { services: [...currentHost.services, svc] });
     setSelectedSvcIdx(currentHost.services.length);
   }
@@ -361,13 +355,8 @@ export default function AdminConfigEditorPage() {
                           {s.port}
                         </span>
 
-                        {/* Status + chevron */}
+                        {/* Chevron */}
                         <div className="flex items-center gap-2 shrink-0">
-                          <div
-                            className="w-1.5 h-1.5 rounded-full"
-                            title={s.status ?? "unknown"}
-                            style={{ backgroundColor: STATUS_COLOR[s.status ?? "unknown"] ?? "#6b7280" }}
-                          />
                           <svg
                             width="12" height="12" viewBox="0 0 12 12" fill="none"
                             className={`text-white/25 transition-transform duration-150 ${isSelected ? "rotate-180 text-blue-400" : ""}`}
@@ -509,14 +498,6 @@ function ServiceEditPanel({
             <option value="udp">UDP</option>
             <option value="http">HTTP</option>
             <option value="https">HTTPS</option>
-          </select>
-        </FormGroup>
-        <FormGroup label="Status">
-          <select value={svc.status ?? "unknown"} onChange={e => onChange({ status: e.target.value })} className={sel}>
-            <option value="unknown">Unknown</option>
-            <option value="running">Running</option>
-            <option value="stopped">Stopped</option>
-            <option value="reserved">Reserved</option>
           </select>
         </FormGroup>
         <div className="col-span-2">

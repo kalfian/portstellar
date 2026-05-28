@@ -11,15 +11,15 @@ A JSON-first port discovery and uptime monitor for homelabs. Define your hosts a
 ### Docker (recommended)
 
 ```bash
-# 1. Create your ports.json (see Configuration below)
-curl -o ports.json https://raw.githubusercontent.com/kalfian/portstellar/master/public/ports.json
-# Edit ports.json with your hosts and services
+# 1. Create your services.json (see Configuration below)
+curl -o services.json https://raw.githubusercontent.com/kalfian/portstellar/master/public/services.json
+# Edit services.json with your hosts and services
 
 # 2. Run
 docker run -d \
   --name portstellar \
   -p 8080:8080 \
-  -v $(pwd)/ports.json:/data/ports.json:ro \
+  -v $(pwd)/services.json:/data/services.json \
   -v portstellar-data:/data \
   --cap-add NET_RAW \
   -e ADMIN_PASSWORD=yourpassword \
@@ -54,14 +54,14 @@ The frontend auto-detects the backend. If the backend is down it falls back to *
 - **Per-service heartbeat** — configure check interval and retries before down independently per service
 - **Uptime detail** — Uptime Kuma-style beat bar (last 50 heartbeats), response time chart, uptime 24h/30d
 - **Admin panel** — web UI to manage hosts, services, categories, and per-service probe settings
-- **JSON-first config** — `ports.json` is the source of truth for topology (hosts & services)
+- **JSON-first config** — `services.json` is the source of truth for topology (hosts & services)
 - **SQLite for runtime data** — ping history, uptime stats, per-service settings stored in SQLite
 - **Dual-themed** — dark CRT vibes or paper blueprint vibes
 - **Single binary, single container** — Go + embedded SPA + SQLite, one port
 
 ---
 
-## Configuration: `ports.json`
+## Configuration: `services.json`
 
 ```json
 {
@@ -151,8 +151,8 @@ Priority order:
 
 Visit `/admin` to access the admin panel (default password: `123456` — change via `ADMIN_PASSWORD` env or Settings page).
 
-- **Config Editor** — add/edit/delete hosts, services, and categories; topology is saved back to `ports.json`
-- **Per-service settings** — set heartbeat interval and retry count per service (stored in SQLite, independent of `ports.json`)
+- **Config Editor** — add/edit/delete hosts, services, and categories; topology is saved back to `services.json`
+- **Per-service settings** — set heartbeat interval and retry count per service (stored in SQLite, independent of `services.json`)
 - **Dashboard** — live service counts and uptime ring
 - **Settings** — change admin password
 
@@ -175,14 +175,14 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 │         ▲  WebSocket push on each probe result          │
 └─────────┼───────────────────────────────────────────────┘
           │
-       Browser         ports.json (mounted read-only)
+       Browser         services.json (mounted writable, source of truth)
 ```
 
 ### API
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/api/config` | — | Raw `ports.json` |
+| GET | `/api/config` | — | Raw `services.json` |
 | GET | `/api/pings/latest` | — | Latest state per service |
 | GET | `/api/pings/history` | — | `?service=<id>&range=<hours>` |
 | GET | `/api/services/{id}/stats` | — | Uptime %, avg latency, last 50 beats |
@@ -192,7 +192,7 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 | GET | `/api/ws` | — | WebSocket — push `ping_result` events |
 | POST | `/api/auth/login` | — | Returns JWT token |
 | GET | `/api/admin/config` | ✓ | Config for admin editor |
-| PUT | `/api/admin/config` | ✓ | Save topology to `ports.json` |
+| PUT | `/api/admin/config` | ✓ | Save topology to `services.json` |
 
 ---
 
@@ -200,10 +200,11 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 
 | Var | Default | Notes |
 |---|---|---|
-| `PORTS_FILE` | `/data/ports.json` | Path to topology config |
+| `SERVICES_FILE` | `/data/services.json` | Path to topology config |
 | `DB_FILE` | `/data/portstellar.db` | SQLite database path |
 | `STATIC_DIR` | `/app/dist` | SPA build directory |
 | `LISTEN_ADDR` | `:8080` | HTTP listen address |
+| `PING_RETENTION_DAYS` | `35` | Retention window for `ping_results`; old ping history is pruned hourly |
 | `ADMIN_PASSWORD` | `""` | If set, enforced on every startup. If empty, uses stored password (default `123456` on first run) |
 
 ---
@@ -225,7 +226,7 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 Issues and pull requests welcome. Before submitting:
 - `npx tsc --noEmit` — TypeScript must pass
 - `cd backend && go build .` — Go must compile
-- Document any `ports.json` schema changes in this README
+- Document any `services.json` schema changes in this README
 
 ---
 

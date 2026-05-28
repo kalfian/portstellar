@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -238,6 +239,89 @@ func (s *Store) PruneOlderThan(ctx context.Context, age time.Duration) (int64, e
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+func (s *Store) PruneOlderThanBatched(ctx context.Context, age time.Duration, batchSize int) (int64, error) {
+	if batchSize <= 0 {
+		batchSize = 5000
+	}
+	cutoff := time.Now().Add(-age).UnixMilli()
+
+	var total int64
+	for {
+		res, err := s.db.ExecContext(ctx,
+			`DELETE FROM ping_results WHERE id IN (
+				SELECT id FROM ping_results WHERE ts < ? LIMIT ?
+			)`,
+			cutoff, batchSize,
+		)
+		if err != nil {
+			return total, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return total, err
+		}
+		total += n
+		if n < int64(batchSize) {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+	}
+
+	return total, nil
+}
+
+func (s *Store) CheckpointPassive(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(PASSIVE)`)
+	return err
+}
+
+func (s *Store) CheckpointTruncate(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	return err
+}
+
+func (s *Store) Optimize(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA optimize`)
+	return err
+}
+
+func (s *Store) ReconcileServices(ctx context.Context, activeIDs []string) (int64, error) {
+	if len(activeIDs) == 0 {
+		slog.Warn("skipping service reconciliation because active service set is empty")
+		return 0, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(activeIDs)), ",")
+	args := make([]any, len(activeIDs))
+	for i, id := range activeIDs {
+		args[i] = id
+	}
+
+	qState := fmt.Sprintf(`DELETE FROM service_state WHERE service_id NOT IN (%s)`, placeholders)
+	qSettings := fmt.Sprintf(`DELETE FROM service_settings WHERE service_id NOT IN (%s)`, placeholders)
+	qHistory := fmt.Sprintf(`DELETE FROM ping_results WHERE service_id NOT IN (%s)`, placeholders)
+
+	res1, err := s.db.ExecContext(ctx, qState, args...)
+	if err != nil {
+		return 0, err
+	}
+	res2, err := s.db.ExecContext(ctx, qSettings, args...)
+	if err != nil {
+		return 0, err
+	}
+	res3, err := s.db.ExecContext(ctx, qHistory, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	n1, _ := res1.RowsAffected()
+	n2, _ := res2.RowsAffected()
+	n3, _ := res3.RowsAffected()
+	return n1 + n2 + n3, nil
 }
 
 // ServiceSetting holds heartbeat and retry config for a service.

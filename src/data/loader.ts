@@ -70,9 +70,9 @@ export function usePorts(): LoaderState {
         // API unavailable or invalid — fall through to static
       }
 
-      // Fallback: static /ports.json
+      // Fallback: static /services.json
       try {
-        const r = await fetch("/ports.json", { cache: "no-store" });
+        const r = await fetch("/services.json", { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const json = await r.json();
         const data = validate(json);
