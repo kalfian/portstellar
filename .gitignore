@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+*.tsbuildinfo
+
+# vite
+.vite/
+.cache/
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# claude code local
+.claude/
+
+# logs
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.local
+.env.*.local
+
+# database (runtime artifacts)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/data/
+
+# go (later)
+backend/svcdisc
+backend/*.test

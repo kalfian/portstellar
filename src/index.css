@@ -1,0 +1,313 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --accent: #0066cc;
+  --accent-glow: #4d9bff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #070a14;
+  color: #c9dcf5;
+  font-feature-settings: "ss01", "cv01", "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+html.light body {
+  background:
+    radial-gradient(ellipse at top, rgba(0, 102, 204, 0.06) 0%, transparent 50%),
+    linear-gradient(180deg, #f4f6fa 0%, #e8edf5 100%);
+  color: #0a1628;
+}
+
+/* CRT scanline overlay — dark only */
+.crt-scan {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  mix-blend-mode: overlay;
+  opacity: 0.18;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.6) 0px,
+    rgba(0, 0, 0, 0.6) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+html.light .crt-scan {
+  display: none;
+}
+
+.crt-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+html.light .crt-vignette {
+  display: none;
+}
+
+.crt-sweep {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 140px;
+  z-index: 58;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 102, 204, 0.08) 50%,
+    transparent 100%
+  );
+  animation: scan 8s linear infinite;
+}
+html.light .crt-sweep {
+  display: none;
+}
+
+.paper-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  opacity: 0.04;
+  background-image: radial-gradient(#08111f 0.5px, transparent 0.5px);
+  background-size: 5px 5px;
+}
+html:not(.light) .paper-grain {
+  display: none;
+}
+
+/* Host radial backdrop */
+.host-backdrop {
+  background: radial-gradient(
+    circle at center,
+    rgba(59, 139, 255, 0.22) 0%,
+    rgba(59, 139, 255, 0.07) 30%,
+    transparent 65%
+  );
+}
+html.light .host-backdrop {
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 102, 204, 0.12) 0%,
+    rgba(0, 102, 204, 0.04) 35%,
+    transparent 70%
+  );
+}
+
+.phos-glow {
+  text-shadow:
+    0 0 1px currentColor,
+    0 0 8px rgba(95, 168, 255, 0.5);
+}
+html:not(.light) .phos-glow {
+  color: #7fb8ff;
+}
+html.light .phos-glow {
+  color: #0066cc;
+  text-shadow: none;
+}
+
+/* Sun core host name — readable + subtle glow */
+.host-name {
+  color: #cfe3ff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 0 1px rgba(207, 227, 255, 0.6),
+    0 0 10px rgba(95, 168, 255, 0.45),
+    0 0 26px rgba(59, 139, 255, 0.25);
+}
+html.light .host-name {
+  color: #003d80;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 18px rgba(0, 102, 204, 0.18);
+}
+
+/* Surface (cards, drawer, toolbars) */
+.surface {
+  background-color: rgba(10, 14, 20, 0.85);
+  backdrop-filter: blur(6px);
+  border-color: rgba(127, 184, 255, 0.4);
+}
+html.light .surface {
+  background-color: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  border-color: rgba(8, 22, 40, 0.18);
+  box-shadow: 0 4px 18px -8px rgba(0, 30, 80, 0.15);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 102, 204, 0.28);
+  border-radius: 0;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(8, 17, 31, 0.25);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* === Cosmos ornaments === */
+.cosmos-stars,
+.cosmos-ambient,
+.cosmos-grid,
+.cosmos-constellations,
+.cosmos-corner {
+  display: none;
+}
+html:not(.light) .cosmos-stars,
+html:not(.light) .cosmos-ambient {
+  display: block;
+}
+html.light .cosmos-constellations,
+html.light .cosmos-grid,
+html.light .cosmos-corner {
+  display: block;
+}
+
+/* Light blueprint grid */
+.cosmos-grid {
+  background-image:
+    linear-gradient(to right, rgba(10, 30, 60, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 30, 60, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center;
+  mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 1) 30%,
+    rgba(0, 0, 0, 0.3) 70%,
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 1) 30%,
+    rgba(0, 0, 0, 0.3) 70%,
+    transparent 100%
+  );
+}
+
+.twinkle {
+  animation: twinkle 4.2s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.1; }
+}
+
+/* Ray ping flow */
+.ray-flow {
+  animation: dashFlow 1.4s linear infinite;
+}
+.ray-flow-fast {
+  animation: dashFlow 0.6s linear infinite;
+}
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* X marker pulse */
+.ping-x {
+  animation: pingXPulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes pingXPulse {
+  0%, 100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Orbital rings — gentle dash drift to imply motion */
+.orbit-ring {
+  animation: orbitFlow 80s linear infinite;
+}
+@keyframes orbitFlow {
+  to {
+    stroke-dashoffset: -120;
+  }
+}
+
+/* Host backdrop subtle breath */
+.host-backdrop {
+  animation: backdropBreathe 8s ease-in-out infinite;
+}
+@keyframes backdropBreathe {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* Service chip — better contrast in light mode */
+.chip {
+  background-color: rgb(from var(--c) r g b / 0.07);
+  border-color: rgb(from var(--c) r g b / 0.55);
+}
+.chip:hover {
+  background-color: rgb(from var(--c) r g b / 0.18);
+  border-color: var(--c);
+}
+html.light .chip {
+  background-color: rgb(from var(--c) r g b / 0.1);
+  border-color: rgb(from var(--c) r g b / 0.7);
+  box-shadow: 0 1px 2px rgba(8, 22, 40, 0.06);
+}
+html.light .chip:hover {
+  background-color: rgb(from var(--c) r g b / 0.22);
+  border-color: var(--c);
+  box-shadow: 0 2px 8px -2px rgba(8, 22, 40, 0.18);
+}
+
+::selection {
+  background: #0066cc;
+  color: #ffffff;
+}
+html.light ::selection {
+  background: #08111f;
+  color: #f1f3f8;
+}
+
+:focus-visible {
+  outline: 1px dashed currentColor;
+  outline-offset: 2px;
+}
