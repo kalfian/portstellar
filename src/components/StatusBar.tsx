@@ -30,7 +30,7 @@ export function StatusBar({
 
   // Count from live ping results — fall back to config status when no pings yet
   const pingValues = Object.values(pings);
-const up = pingValues.filter((p) => p.state === "ok").length;
+  const up = pingValues.filter((p) => p.state === "ok").length;
   const down = pingValues.filter((p) => p.state === "fail").length;
 
   return (
