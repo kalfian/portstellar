@@ -1,4 +1,3 @@
-export type Status = "running" | "stopped" | "reserved" | "unknown";
 export type Protocol = "tcp" | "udp";
 
 export interface Host {
@@ -24,7 +23,6 @@ export interface Service {
   url?: string;
   description?: string;
   tags?: string[];
-  status?: Status;
 }
 
 export interface PortsConfig {
@@ -45,7 +43,6 @@ export interface RawService {
   url?: string;
   description?: string;
   tags?: string[];
-  status?: Status;
 }
 
 export interface RawHost extends Host {

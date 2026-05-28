@@ -22,14 +22,13 @@ type Host struct {
 }
 
 type Service struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Port        int    `json:"port"`
-	Protocol    string `json:"protocol,omitempty"`
-	Category    string `json:"category,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Description string `json:"description,omitempty"`
-	Status      string `json:"status,omitempty"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Port        int      `json:"port"`
+	Protocol    string   `json:"protocol,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	Description string   `json:"description,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 
 	// Probe override: type can be "http", "tcp", "icmp"
@@ -55,7 +54,6 @@ type FlatService struct {
 	Port     int
 	Protocol string
 	URL      string
-	Status   string
 	Probe    *ProbeConfig
 }
 
@@ -100,7 +98,6 @@ func (c *Config) FlatServices() []FlatService {
 				Port:     s.Port,
 				Protocol: s.Protocol,
 				URL:      s.URL,
-				Status:   s.Status,
 				Probe:    s.Probe,
 			})
 		}

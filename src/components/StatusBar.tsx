@@ -30,13 +30,8 @@ export function StatusBar({
 
   // Count from live ping results — fall back to config status when no pings yet
   const pingValues = Object.values(pings);
-  const hasPings = pingValues.length > 0;
-  const up = hasPings
-    ? pingValues.filter((p) => p.state === "ok").length
-    : (data?.services.filter((s) => s.status === "running").length ?? 0);
-  const down = hasPings
-    ? pingValues.filter((p) => p.state === "fail").length
-    : (data?.services.filter((s) => s.status === "stopped").length ?? 0);
+const up = pingValues.filter((p) => p.state === "ok").length;
+  const down = pingValues.filter((p) => p.state === "fail").length;
 
   return (
     <header className="border-b border-current/20 dark:border-phos/25 select-none">

@@ -2,38 +2,137 @@
   "name": "Home Server",
   "pingIntervalMs": 30000,
   "categories": [
-    { "id": "media",   "label": "Media",       "color": "#ff5577" },
-    { "id": "infra",   "label": "Infra",       "color": "#4d9bff" },
-    { "id": "data",    "label": "Data",        "color": "#7ad4ff" },
-    { "id": "net",     "label": "Network",     "color": "#ffb454" },
-    { "id": "dev",     "label": "Development", "color": "#c084fc" },
-    { "id": "smart",   "label": "Smart Home",  "color": "#ffe66d" }
+    {
+      "id": "media",
+      "label": "Media",
+      "color": "#ff5577"
+    },
+    {
+      "id": "infra",
+      "label": "Infra",
+      "color": "#4d9bff"
+    },
+    {
+      "id": "data",
+      "label": "Data",
+      "color": "#7ad4ff"
+    },
+    {
+      "id": "net",
+      "label": "Network",
+      "color": "#ffb454"
+    },
+    {
+      "id": "dev",
+      "label": "Development",
+      "color": "#c084fc"
+    },
+    {
+      "id": "smart",
+      "label": "Smart Home",
+      "color": "#ffe66d"
+    }
   ],
   "hosts": [
     {
       "id": "mew",
       "name": "mew",
       "ip": "10.20.30.11",
-      "note": "lightweight node · edge services",
+      "note": "lightweight node \u00b7 edge services",
       "services": [
-        { "id": "ssh",     "name": "SSH",            "port": 22,   "protocol": "tcp", "category": "infra", "status": "running", "description": "OpenSSH daemon", "tags": ["admin"] },
-        { "id": "pihole",  "name": "Pi-hole",        "port": 80,   "protocol": "tcp", "category": "net",   "status": "running", "url": "http://10.20.30.11/admin", "description": "DNS sinkhole" },
-        { "id": "pdns",    "name": "Pi-hole DNS",    "port": 53,   "protocol": "udp", "category": "net",   "status": "running" },
-        { "id": "hass",    "name": "Home Assistant", "port": 8123, "protocol": "tcp", "category": "smart", "status": "running", "url": "http://10.20.30.11:8123", "tags": ["iot"] }
+        {
+          "id": "ssh",
+          "name": "SSH",
+          "port": 22,
+          "protocol": "tcp",
+          "category": "infra",
+          "description": "OpenSSH daemon",
+          "tags": [
+            "admin"
+          ]
+        },
+        {
+          "id": "pihole",
+          "name": "Pi-hole",
+          "port": 80,
+          "protocol": "tcp",
+          "category": "net",
+          "url": "http://10.20.30.11/admin",
+          "description": "DNS sinkhole"
+        },
+        {
+          "id": "pdns",
+          "name": "Pi-hole DNS",
+          "port": 53,
+          "protocol": "udp",
+          "category": "net"
+        },
+        {
+          "id": "hass",
+          "name": "Home Assistant",
+          "port": 8123,
+          "protocol": "tcp",
+          "category": "smart",
+          "url": "http://10.20.30.11:8123",
+          "tags": [
+            "iot"
+          ]
+        }
       ]
     },
     {
       "id": "palkia",
       "name": "palkia",
       "ip": "10.20.30.100",
-      "note": "primary home server · docker host",
+      "note": "primary home server \u00b7 docker host",
       "services": [
-        { "id": "ssh",      "name": "SSH",          "port": 22,    "protocol": "tcp", "category": "infra", "status": "running" },
-        { "id": "nginx",    "name": "nginx",        "port": 443,   "protocol": "tcp", "category": "infra", "status": "running", "url": "https://10.20.30.100" },
-        { "id": "plex",     "name": "Plex",         "port": 32400, "protocol": "tcp", "category": "media", "status": "running", "url": "http://10.20.30.100:32400/web" },
-        { "id": "grafana",  "name": "Grafana",      "port": 3000,  "protocol": "tcp", "category": "data",  "status": "running", "url": "http://10.20.30.100:3000" },
-        { "id": "postgres", "name": "PostgreSQL",   "port": 5432,  "protocol": "tcp", "category": "data",  "status": "running", "description": "Primary DB" },
-        { "id": "gitea",    "name": "Gitea",        "port": 3001,  "protocol": "tcp", "category": "dev",   "status": "running", "url": "http://10.20.30.100:3001" }
+        {
+          "id": "ssh",
+          "name": "SSH",
+          "port": 22,
+          "protocol": "tcp",
+          "category": "infra"
+        },
+        {
+          "id": "nginx",
+          "name": "nginx",
+          "port": 443,
+          "protocol": "tcp",
+          "category": "infra",
+          "url": "https://10.20.30.100"
+        },
+        {
+          "id": "plex",
+          "name": "Plex",
+          "port": 32400,
+          "protocol": "tcp",
+          "category": "media",
+          "url": "http://10.20.30.100:32400/web"
+        },
+        {
+          "id": "grafana",
+          "name": "Grafana",
+          "port": 3000,
+          "protocol": "tcp",
+          "category": "data",
+          "url": "http://10.20.30.100:3000"
+        },
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "port": 5432,
+          "protocol": "tcp",
+          "category": "data",
+          "description": "Primary DB"
+        },
+        {
+          "id": "gitea",
+          "name": "Gitea",
+          "port": 3001,
+          "protocol": "tcp",
+          "category": "dev",
+          "url": "http://10.20.30.100:3001"
+        }
       ]
     }
   ]
