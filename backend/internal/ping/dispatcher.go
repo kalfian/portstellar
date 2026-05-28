@@ -56,18 +56,23 @@ type Dispatcher struct {
 	// record. It is called with the service ID, ok flag, latency in ms, error
 	// message (if any), and the Unix-millisecond timestamp. Use a function
 	// (not an interface) to avoid circular import with the ws package.
-	onPingResult func(serviceID string, ok bool, latencyMs int, errMsg string, ts int64)
+	onPingResult  func(serviceID string, ok bool, latencyMs int, errMsg string, ts int64)
+	pingRetention time.Duration
 
 	lastTick atomic.Int64 // unix millis of last completed tick
 	bootTime time.Time
 }
 
-func NewDispatcher(cfg *config.Config, store *db.Store, onPingResult func(string, bool, int, string, int64)) *Dispatcher {
+func NewDispatcher(cfg *config.Config, store *db.Store, pingRetention time.Duration, onPingResult func(string, bool, int, string, int64)) *Dispatcher {
+	if pingRetention <= 0 {
+		pingRetention = 35 * 24 * time.Hour
+	}
 	return &Dispatcher{
-		cfg:          cfg,
-		store:        store,
-		onPingResult: onPingResult,
-		bootTime:     time.Now(),
+		cfg:           cfg,
+		store:         store,
+		onPingResult:  onPingResult,
+		pingRetention: pingRetention,
+		bootTime:      time.Now(),
 	}
 }
 
@@ -108,9 +113,11 @@ func (d *Dispatcher) Run(ctx context.Context) {
 	ticker := time.NewTicker(globalTickInterval)
 	defer ticker.Stop()
 
-	// Periodic prune: clean records older than 48h
 	pruneTicker := time.NewTicker(1 * time.Hour)
 	defer pruneTicker.Stop()
+
+	dailyMaintenanceTicker := time.NewTicker(24 * time.Hour)
+	defer dailyMaintenanceTicker.Stop()
 
 	for {
 		select {
@@ -122,10 +129,26 @@ func (d *Dispatcher) Run(ctx context.Context) {
 			services = cfg.FlatServices()
 			d.tick(ctx, services, schedule)
 		case <-pruneTicker.C:
-			if n, err := d.store.PruneOlderThan(ctx, 48*time.Hour); err != nil {
+			if n, err := d.store.PruneOlderThanBatched(ctx, d.pingRetention, 5000); err != nil {
 				slog.Warn("prune error", "err", err)
 			} else if n > 0 {
-				slog.Info("pruned old ping records", "deleted", n)
+				slog.Info("pruned old ping records", "deleted", n, "retention", d.pingRetention.String())
+			}
+			if err := d.store.CheckpointPassive(ctx); err != nil {
+				slog.Warn("sqlite passive checkpoint failed", "err", err)
+			} else {
+				slog.Info("sqlite passive checkpoint complete")
+			}
+		case <-dailyMaintenanceTicker.C:
+			if err := d.store.CheckpointTruncate(ctx); err != nil {
+				slog.Warn("sqlite truncate checkpoint failed", "err", err)
+			} else {
+				slog.Info("sqlite truncate checkpoint complete")
+			}
+			if err := d.store.Optimize(ctx); err != nil {
+				slog.Warn("sqlite optimize failed", "err", err)
+			} else {
+				slog.Info("sqlite optimize complete")
 			}
 		}
 	}

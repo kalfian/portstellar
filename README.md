@@ -204,6 +204,7 @@ Visit `/admin` to access the admin panel (default password: `123456` — change 
 | `DB_FILE` | `/data/portstellar.db` | SQLite database path |
 | `STATIC_DIR` | `/app/dist` | SPA build directory |
 | `LISTEN_ADDR` | `:8080` | HTTP listen address |
+| `PING_RETENTION_DAYS` | `35` | Retention window for `ping_results`; old ping history is pruned hourly |
 | `ADMIN_PASSWORD` | `""` | If set, enforced on every startup. If empty, uses stored password (default `123456` on first run) |
 
 ---

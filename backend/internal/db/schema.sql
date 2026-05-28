@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS ping_results (
 CREATE INDEX IF NOT EXISTS idx_ping_results_service_ts
     ON ping_results (service_id, ts);
 
+CREATE INDEX IF NOT EXISTS idx_ping_results_ts
+    ON ping_results (ts);
+
 -- Latest state per service (upserted after each probe)
 CREATE TABLE IF NOT EXISTS service_state (
     service_id TEXT    PRIMARY KEY,

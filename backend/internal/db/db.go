@@ -240,6 +240,54 @@ func (s *Store) PruneOlderThan(ctx context.Context, age time.Duration) (int64, e
 	return res.RowsAffected()
 }
 
+func (s *Store) PruneOlderThanBatched(ctx context.Context, age time.Duration, batchSize int) (int64, error) {
+	if batchSize <= 0 {
+		batchSize = 5000
+	}
+	cutoff := time.Now().Add(-age).UnixMilli()
+
+	var total int64
+	for {
+		res, err := s.db.ExecContext(ctx,
+			`DELETE FROM ping_results WHERE id IN (
+				SELECT id FROM ping_results WHERE ts < ? LIMIT ?
+			)`,
+			cutoff, batchSize,
+		)
+		if err != nil {
+			return total, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return total, err
+		}
+		total += n
+		if n < int64(batchSize) {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+	}
+
+	return total, nil
+}
+
+func (s *Store) CheckpointPassive(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(PASSIVE)`)
+	return err
+}
+
+func (s *Store) CheckpointTruncate(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	return err
+}
+
+func (s *Store) Optimize(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA optimize`)
+	return err
+}
+
 // ServiceSetting holds heartbeat and retry config for a service.
 type ServiceSetting struct {
 	ServiceID   string `json:"serviceId"`
