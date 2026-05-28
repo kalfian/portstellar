@@ -37,8 +37,7 @@ COPY --from=spa /app/dist        ./dist
 ENV SERVICES_FILE=/data/services.json \
     DB_FILE=/data/portstellar.db \
     STATIC_DIR=/app/dist \
-    LISTEN_ADDR=:8080 \
-    ADMIN_PASSWORD=""
+    LISTEN_ADDR=:8080
 
 EXPOSE 8080
 VOLUME ["/data"]
