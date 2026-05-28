@@ -55,6 +55,9 @@ func (h *Handler) adminPutConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "config apply failed", http.StatusInternalServerError)
 		return
 	}
+	if st, err := os.Stat(h.portsFile); err == nil {
+		h.setConfigFileModTime(st.ModTime())
+	}
 	writeJSON(w, map[string]any{"ok": true, "savedAt": time.Now().UnixMilli()})
 }
 

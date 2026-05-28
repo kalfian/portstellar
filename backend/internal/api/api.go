@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/kalfian/portstellar/internal/config"
@@ -16,12 +17,13 @@ import (
 )
 
 type Handler struct {
-	mux        *http.ServeMux
-	portsFile  string
-	store      *db.Store
-	dispatcher *ping.Dispatcher
-	hub        *ws.Hub
-	bootTime   time.Time
+	mux            *http.ServeMux
+	portsFile      string
+	store          *db.Store
+	dispatcher     *ping.Dispatcher
+	hub            *ws.Hub
+	bootTime       time.Time
+	configFileModN atomic.Int64
 }
 
 func NewHandler(portsFile string, store *db.Store, staticDir string, dispatcher *ping.Dispatcher, hub *ws.Hub) *Handler {
@@ -101,6 +103,10 @@ func (h *Handler) WatchConfigFile(ctx context.Context, interval time.Duration) {
 		return
 	}
 	lastMod := st.ModTime()
+	if tracked := h.configFileModTime(); tracked.After(lastMod) {
+		lastMod = tracked
+	}
+	h.setConfigFileModTime(lastMod)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -121,9 +127,21 @@ func (h *Handler) WatchConfigFile(ctx context.Context, interval time.Duration) {
 				continue
 			}
 			lastMod = current.ModTime()
+			h.setConfigFileModTime(lastMod)
 			slog.Info("config watcher applied services.json", "path", h.portsFile)
 		}
 	}
+}
+
+func (h *Handler) setConfigFileModTime(t time.Time) {
+	h.configFileModN.Store(t.UnixNano())
+}
+
+func (h *Handler) configFileModTime() time.Time {
+	if n := h.configFileModN.Load(); n > 0 {
+		return time.Unix(0, n)
+	}
+	return time.Time{}
 }
 
 func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
