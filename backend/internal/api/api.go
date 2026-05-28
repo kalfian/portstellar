@@ -36,8 +36,8 @@ func NewHandler(portsFile string, store *db.Store, staticDir string, dispatcher 
 
 	if loaded, err := config.Load(portsFile); err != nil {
 		slog.Warn("initial config apply skipped", "err", err)
-	} else {
-		h.applyLoadedConfig(context.Background(), loaded)
+	} else if err := h.applyLoadedConfig(context.Background(), loaded); err != nil {
+		slog.Warn("initial config apply skipped", "err", err)
 	}
 
 	h.mux.HandleFunc("GET /api/config", h.getConfig)
