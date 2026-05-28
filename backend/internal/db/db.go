@@ -291,22 +291,8 @@ func (s *Store) Optimize(ctx context.Context) error {
 
 func (s *Store) ReconcileServices(ctx context.Context, activeIDs []string) (int64, error) {
 	if len(activeIDs) == 0 {
-		res1, err := s.db.ExecContext(ctx, `DELETE FROM service_state`)
-		if err != nil {
-			return 0, err
-		}
-		res2, err := s.db.ExecContext(ctx, `DELETE FROM service_settings`)
-		if err != nil {
-			return 0, err
-		}
-		res3, err := s.db.ExecContext(ctx, `DELETE FROM ping_results`)
-		if err != nil {
-			return 0, err
-		}
-		n1, _ := res1.RowsAffected()
-		n2, _ := res2.RowsAffected()
-		n3, _ := res3.RowsAffected()
-		return n1 + n2 + n3, nil
+		slog.Warn("skipping service reconciliation because active service set is empty")
+		return 0, nil
 	}
 
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(activeIDs)), ",")
